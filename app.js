@@ -46,11 +46,6 @@ function bindStaticEvents(){
     try{
       show('loading');
       const cred=await createUserWithEmailAndPassword(auth,emailFor(f.get('username')),f.get('password'));
-      const existing=await getDoc(doc(db,'tenants',tenant));
-      if(existing.exists()){
-        await deleteUser(cred.user);
-        throw new Error('exists');
-      }
       await setDoc(doc(db,'tenants',tenant),{businessName:f.get('businessName'),phone:'',address:'',primaryColor:'#f59e0b',logoData:'',ownerUid:cred.user.uid,createdAt:serverTimestamp()});
       await setDoc(doc(db,'tenants',tenant,'users',cred.user.uid),{name:f.get('name'),username:String(f.get('username')).toLowerCase(),role:'admin',active:true,createdAt:serverTimestamp()});
       toast('Sistema criado com sucesso.');
