@@ -1,5 +1,5 @@
 import { initializeApp, deleteApp } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence, deleteUser } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, deleteDoc, onSnapshot, serverTimestamp, query, orderBy } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
 
 const qs = s => document.querySelector(s);
@@ -34,11 +34,7 @@ async function init(){
 }
 
 function bindStaticEvents(){
-  qs('#showSetupBtn').onclick=async()=>{
-    const t=await getDoc(doc(db,'tenants',tenant));
-    if(t.exists()) return toast('Esta borracharia já foi configurada. Entre com seu usuário.');
-    show('setupView');
-  };
+  qs('#showSetupBtn').onclick=()=>show('setupView');
   qs('#backLoginBtn').onclick=()=>show('loginView');
   qs('#loginForm').onsubmit=async e=>{
     e.preventDefault();
@@ -49,8 +45,12 @@ function bindStaticEvents(){
     e.preventDefault(); const f=new FormData(e.target);
     try{
       show('loading');
-      const existing=await getDoc(doc(db,'tenants',tenant)); if(existing.exists()) throw new Error('exists');
       const cred=await createUserWithEmailAndPassword(auth,emailFor(f.get('username')),f.get('password'));
+      const existing=await getDoc(doc(db,'tenants',tenant));
+      if(existing.exists()){
+        await deleteUser(cred.user);
+        throw new Error('exists');
+      }
       await setDoc(doc(db,'tenants',tenant),{businessName:f.get('businessName'),phone:'',address:'',primaryColor:'#f59e0b',logoData:'',ownerUid:cred.user.uid,createdAt:serverTimestamp()});
       await setDoc(doc(db,'tenants',tenant,'users',cred.user.uid),{name:f.get('name'),username:String(f.get('username')).toLowerCase(),role:'admin',active:true,createdAt:serverTimestamp()});
       toast('Sistema criado com sucesso.');
