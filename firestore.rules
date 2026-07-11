@@ -1,41 +1,47 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null; }
-    function userDoc(tenantId) { return get(/databases/$(database)/documents/tenants/$(tenantId)/users/$(request.auth.uid)); }
-    function member(tenantId) { return signedIn() && exists(/databases/$(database)/documents/tenants/$(tenantId)/users/$(request.auth.uid)) && userDoc(tenantId).data.active == true; }
-    function admin(tenantId) { return member(tenantId) && userDoc(tenantId).data.role == 'admin'; }
+    function signedIn(){ return request.auth != null; }
+    function userPath(t){ return /databases/$(database)/documents/tenants/$(t)/users/$(request.auth.uid); }
+    function member(t){ return signedIn() && exists(userPath(t)) && get(userPath(t)).data.active == true; }
+    function admin(t){ return member(t) && get(userPath(t)).data.role == 'admin'; }
+    function perm(t,p){ return admin(t) || (member(t) && get(userPath(t)).data.permissions[p] == true); }
 
     match /tenants/{tenantId} {
       allow read: if member(tenantId);
-      // Permite criar somente a primeira borracharia vinculada ao próprio UID.
       allow create: if signedIn() && !exists(/databases/$(database)/documents/tenants/$(tenantId)) && request.resource.data.ownerUid == request.auth.uid;
-      allow update: if admin(tenantId);
+      allow update: if admin(tenantId) || perm(tenantId,'settingsManage');
       allow delete: if false;
 
       match /users/{uid} {
         allow read: if member(tenantId);
-        // Primeira conta: o próprio usuário cria seu perfil quando a empresa ainda não possui usuários.
-        allow create: if signedIn() && request.auth.uid == uid && request.resource.data.role == 'admin'
-          || admin(tenantId);
-        allow update: if admin(tenantId) || (signedIn() && request.auth.uid == uid && request.resource.data.role == resource.data.role && request.resource.data.active == resource.data.active);
-        allow delete: if admin(tenantId) && request.auth.uid != uid;
+        allow create: if (signedIn() && request.auth.uid == uid && request.resource.data.role == 'admin') || admin(tenantId) || perm(tenantId,'usersManage');
+        allow update: if admin(tenantId) || perm(tenantId,'usersManage') || (signedIn() && request.auth.uid == uid && request.resource.data.role == resource.data.role && request.resource.data.active == resource.data.active);
+        allow delete: if (admin(tenantId) || perm(tenantId,'usersManage')) && request.auth.uid != uid;
       }
-
-      match /orders/{docId} {
-        allow read: if member(tenantId);
-        allow create: if member(tenantId);
-        allow update: if member(tenantId);
+      match /orders/{id} {
+        allow read: if perm(tenantId,'ordersView');
+        allow create: if perm(tenantId,'ordersCreate');
+        allow update: if perm(tenantId,'ordersEdit');
         allow delete: if admin(tenantId);
       }
-      match /stock/{docId} {
-        allow read: if member(tenantId);
-        allow create, update: if member(tenantId);
-        allow delete: if admin(tenantId);
+      match /stock/{id} {
+        allow read: if perm(tenantId,'stockView');
+        allow create,update: if perm(tenantId,'stockEdit');
+        allow delete: if admin(tenantId) || perm(tenantId,'stockEdit');
       }
-      match /expenses/{docId} {
-        allow read: if admin(tenantId);
-        allow create, update, delete: if admin(tenantId);
+      match /services/{id} {
+        allow read: if member(tenantId);
+        allow create,update,delete: if admin(tenantId) || perm(tenantId,'servicesManage');
+      }
+      match /stockMovements/{id} {
+        allow read: if perm(tenantId,'stockView');
+        allow create: if perm(tenantId,'stockEdit') || perm(tenantId,'ordersCreate');
+        allow update,delete: if admin(tenantId);
+      }
+      match /expenses/{id} {
+        allow read: if perm(tenantId,'cashView');
+        allow create,update,delete: if admin(tenantId) || perm(tenantId,'cashEdit');
       }
     }
   }
