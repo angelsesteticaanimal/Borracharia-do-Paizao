@@ -8,3 +8,19 @@
 .order-item-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:end}
 .line-subtotal{padding:10px 0;font-size:15px}
 @media(max-width:720px){.order-item-grid{grid-template-columns:1fr}.order-item-card{padding:12px}.toolbar{align-items:flex-start}.toolbar .actions{width:100%}}
+
+
+/* V3.3 - múltiplos serviços visíveis na ordem */
+.order-item-number{font-weight:800;font-size:16px;margin-bottom:10px;color:var(--text)}
+.order-item-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.order-item-actions .btn{min-height:42px}
+.order-items-summary{margin:12px 0 18px;border:1px solid var(--border);border-radius:14px;background:#f8fafc;overflow:hidden}
+.selected-services-title{font-weight:800;padding:12px 14px;border-bottom:1px solid var(--border);background:#eef2f7}
+.selected-service-row{display:flex;justify-content:space-between;gap:16px;padding:11px 14px;border-bottom:1px solid var(--border);align-items:center}
+.selected-service-row:last-child{border-bottom:0}
+.selected-service-row span:first-child{display:flex;flex-direction:column;gap:3px}
+.selected-service-row small{color:var(--muted)}
+.empty.compact{padding:14px}
+.new-item-highlight{animation:newItemFlash .9s ease}
+@keyframes newItemFlash{0%{box-shadow:0 0 0 4px rgba(245,158,11,.45)}100%{box-shadow:none}}
+@media(max-width:720px){.selected-service-row{flex-direction:column;align-items:flex-start}.order-item-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}.order-item-actions .btn{width:100%}}
