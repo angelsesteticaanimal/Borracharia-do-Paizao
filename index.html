@@ -10,10 +10,18 @@
 </head>
 <body>
   <div id="toast" class="toast hidden"></div>
-  <div id="loading" class="loading-overlay"><div class="loading-card">Conectando ao sistema...</div></div>
+  <div id="loading" class="loading-overlay">
+    <div class="loading-card">Conectando ao sistema...</div>
+  </div>
 
   <section id="configView" class="view login-view hidden">
-    <div class="login-card"><div class="brand-area"><div class="brand-fallback">!</div><h1>Firebase não configurado</h1><p>Preencha o arquivo firebase-config.js.</p></div></div>
+    <div class="login-card">
+      <div class="brand-area">
+        <div class="brand-fallback">!</div>
+        <h1>Firebase não configurado</h1>
+        <p>Preencha o arquivo firebase-config.js.</p>
+      </div>
+    </div>
   </section>
 
   <section id="loginView" class="view login-view hidden">
@@ -24,26 +32,79 @@
         <h1 id="loginBusinessName">Controle da Borracharia</h1>
         <p id="tenantInfo">Acesso online por link.</p>
       </div>
+
       <form id="loginForm" class="form-stack">
-        <label>Usuário<input id="loginUser" autocomplete="username" required placeholder="Digite seu usuário"></label>
-        <label>Senha<input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Digite sua senha"></label>
+        <label>
+          Usuário
+          <input
+            id="loginUser"
+            autocomplete="username"
+            required
+            placeholder="Digite seu usuário">
+        </label>
+
+        <label>
+          Senha
+          <input
+            id="loginPassword"
+            type="password"
+            autocomplete="current-password"
+            required
+            placeholder="Digite sua senha">
+        </label>
+
         <button class="btn btn-primary">Entrar</button>
       </form>
-      <button id="showSetupBtn" class="btn btn-secondary full-button">Configurar primeira conta</button>
-      <p class="muted small">Use o link com <strong>?loja=nome-da-borracharia</strong>.</p>
+
+      <button
+        id="showSetupBtn"
+        class="btn btn-secondary full-button">
+        Configurar primeira conta
+      </button>
+
+      <p class="muted small">
+        Use o link com <strong>?loja=nome-da-borracharia</strong>.
+      </p>
     </div>
   </section>
 
   <section id="setupView" class="view login-view hidden">
     <div class="login-card">
-      <div class="brand-area"><div class="brand-fallback">1</div><h1>Primeira configuração</h1><p>Crie a borracharia e o administrador principal.</p></div>
+      <div class="brand-area">
+        <div class="brand-fallback">1</div>
+        <h1>Primeira configuração</h1>
+        <p>Crie a borracharia e o administrador principal.</p>
+      </div>
+
       <form id="setupForm" class="form-stack">
-        <label>Nome da borracharia<input name="businessName" required></label>
-        <label>Nome do administrador<input name="name" required></label>
-        <label>Usuário do administrador<input name="username" required minlength="3"></label>
-        <label>Senha<input name="password" type="password" required minlength="6"></label>
+        <label>
+          Nome da borracharia
+          <input name="businessName" required>
+        </label>
+
+        <label>
+          Nome do administrador
+          <input name="name" required>
+        </label>
+
+        <label>
+          Usuário do administrador
+          <input name="username" required minlength="3">
+        </label>
+
+        <label>
+          Senha
+          <input name="password" type="password" required minlength="6">
+        </label>
+
         <button class="btn btn-primary">Criar sistema online</button>
-        <button id="backLoginBtn" type="button" class="btn btn-secondary">Voltar</button>
+
+        <button
+          id="backLoginBtn"
+          type="button"
+          class="btn btn-secondary">
+          Voltar
+        </button>
       </form>
     </div>
   </section>
@@ -53,12 +114,19 @@
       <div class="topbar-brand">
         <img id="headerLogo" class="header-logo hidden" alt="Logomarca">
         <div id="headerLogoFallback" class="header-fallback">B</div>
-        <div><h2 id="headerBusinessName">Borracharia</h2><span id="roleBadge" class="badge"></span></div>
+
+        <div>
+          <h2 id="headerBusinessName">Borracharia</h2>
+          <span id="roleBadge" class="badge"></span>
+        </div>
       </div>
+
       <button id="logoutBtn" class="btn btn-ghost">Sair</button>
     </header>
+
     <div class="app-shell">
       <nav id="sidebar" class="sidebar"></nav>
+
       <main class="content">
         <section id="dashboardPage" class="page"></section>
         <section id="ordersPage" class="page hidden"></section>
@@ -74,7 +142,13 @@
     </div>
   </section>
 
-  <div id="modal" class="modal hidden"><div class="modal-card"><button id="modalClose" class="modal-close">×</button><div id="modalBody"></div></div></div>
+  <div id="modal" class="modal hidden">
+    <div class="modal-card">
+      <button id="modalClose" class="modal-close">×</button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
   <script src="firebase-config.js"></script>
   <script type="module" src="app.js"></script>
 </body>
