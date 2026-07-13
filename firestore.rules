@@ -6,9 +6,14 @@ service cloud.firestore {
     function member(t){ return signedIn() && exists(userPath(t)) && get(userPath(t)).data.active == true; }
     function admin(t){ return member(t) && get(userPath(t)).data.role == 'admin'; }
     function perm(t,p){ return admin(t) || (member(t) && get(userPath(t)).data.permissions[p] == true); }
+    function employeeMayEditOrder(){
+      return resource.data.status != 'concluida'
+        || (resource.data.completedAt is timestamp && request.time < resource.data.completedAt + duration.value(60, 's'));
+    }
 
     match /tenants/{tenantId} {
-      allow read: if member(tenantId);
+      allow get: if true;
+      allow list: if member(tenantId);
       allow create: if signedIn() && !exists(/databases/$(database)/documents/tenants/$(tenantId)) && request.resource.data.ownerUid == request.auth.uid;
       allow update: if admin(tenantId) || perm(tenantId,'settingsManage');
       allow delete: if false;
@@ -22,26 +27,30 @@ service cloud.firestore {
       match /orders/{id} {
         allow read: if perm(tenantId,'ordersView');
         allow create: if perm(tenantId,'ordersCreate');
-        allow update: if perm(tenantId,'ordersEdit');
+        allow update: if admin(tenantId) || (perm(tenantId,'ordersEdit') && employeeMayEditOrder());
         allow delete: if admin(tenantId);
+        match /history/{historyId} {
+          allow read, create: if admin(tenantId);
+          allow update, delete: if false;
+        }
       }
       match /stock/{id} {
         allow read: if perm(tenantId,'stockView');
-        allow create,update: if perm(tenantId,'stockEdit');
+        allow create, update: if perm(tenantId,'stockEdit') || perm(tenantId,'ordersEdit');
         allow delete: if admin(tenantId) || perm(tenantId,'stockEdit');
       }
       match /services/{id} {
         allow read: if member(tenantId);
-        allow create,update,delete: if admin(tenantId) || perm(tenantId,'servicesManage');
+        allow create, update, delete: if admin(tenantId) || perm(tenantId,'servicesManage');
       }
       match /stockMovements/{id} {
         allow read: if perm(tenantId,'stockView');
-        allow create: if perm(tenantId,'stockEdit') || perm(tenantId,'ordersCreate');
-        allow update,delete: if admin(tenantId);
+        allow create: if perm(tenantId,'stockEdit') || perm(tenantId,'ordersCreate') || perm(tenantId,'ordersEdit');
+        allow update, delete: if admin(tenantId);
       }
       match /expenses/{id} {
         allow read: if perm(tenantId,'cashView');
-        allow create,update,delete: if admin(tenantId) || perm(tenantId,'cashEdit');
+        allow create, update, delete: if admin(tenantId) || perm(tenantId,'cashEdit');
       }
     }
   }
