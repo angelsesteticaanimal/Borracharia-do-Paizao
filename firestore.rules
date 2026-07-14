@@ -48,6 +48,19 @@ service cloud.firestore {
         allow create: if perm(tenantId,'stockEdit') || perm(tenantId,'ordersCreate') || perm(tenantId,'ordersEdit');
         allow update, delete: if admin(tenantId);
       }
+
+      match /receivables/{id} {
+        allow read: if perm(tenantId, 'cashView');
+        allow create, update: if perm(tenantId, 'cashEdit') || admin(tenantId);
+        allow delete: if admin(tenantId);
+
+        match /payments/{paymentId} {
+          allow read: if perm(tenantId, 'cashView');
+          allow create: if perm(tenantId, 'cashEdit') || admin(tenantId);
+          allow update, delete: if false;
+        }
+      }
+
       match /expenses/{id} {
         allow read: if perm(tenantId,'cashView');
         allow create, update, delete: if admin(tenantId) || perm(tenantId,'cashEdit');
