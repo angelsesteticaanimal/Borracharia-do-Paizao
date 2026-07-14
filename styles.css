@@ -43,3 +43,6 @@
 .due-alert-actions{justify-content:center;margin-top:16px}
 .payment-method-grid .stat-value{font-size:23px}
 @media(max-width:620px){.due-alert-row{align-items:stretch;flex-direction:column}.due-alert-row .btn{width:100%}.due-alert-actions{display:grid;grid-template-columns:1fr;width:100%}.due-alert-actions .btn{width:100%}}
+
+/* V3.8 */
+.cash-date-filter{display:flex;align-items:center;gap:10px;font-weight:800}.cash-date-filter input{width:auto;min-width:170px}.credit-fields-visible{display:block!important}@media(max-width:620px){.cash-date-filter{width:100%;justify-content:space-between}.cash-date-filter input{min-width:155px}}

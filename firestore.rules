@@ -61,6 +61,12 @@ service cloud.firestore {
         }
       }
 
+      match /cashMovements/{id} {
+        allow read: if perm(tenantId, 'cashView');
+        allow create: if member(tenantId);
+        allow update, delete: if admin(tenantId);
+      }
+
       match /expenses/{id} {
         allow read: if perm(tenantId,'cashView');
         allow create, update, delete: if admin(tenantId) || perm(tenantId,'cashEdit');
