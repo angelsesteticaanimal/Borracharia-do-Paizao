@@ -101,7 +101,21 @@ function startRealtime(){
  if(can('usersManage'))unsubs.push(onSnapshot(collection(db,'tenants',tenant,'users'),s=>{users=s.docs.map(d=>({id:d.id,...d.data(),permissions:permissionsOf(d.data())}));refresh()}));
  qs('#roleBadge').textContent=isAdmin()?'Administrador':'Funcionário';
 }
-function refresh(){if(!qs('#appView').classList.contains('hidden'))navigate(currentPage||'dashboard',false)}
+function refresh(){
+  if(qs('#appView').classList.contains('hidden'))return;
+
+  // Não reconstrói formulários enquanto o usuário está digitando.
+  // Os listeners em tempo real do Firebase podem disparar durante o preenchimento
+  // e, se a tela for recriada, o campo perde o foco e o teclado do celular fecha.
+  const active=document.activeElement;
+  const isTyping=active&&['INPUT','TEXTAREA','SELECT'].includes(active.tagName);
+  const modalOpen=!qs('#modal')?.classList.contains('hidden');
+
+  if(currentPage==='newOrder'&&isTyping)return;
+  if(modalOpen&&isTyping)return;
+
+  navigate(currentPage||'dashboard',false);
+}
 function buildMenu(){const items=[['dashboard','Painel',true],['orders','Ordens de serviço',can('ordersView')],['history','Clientes e veículos',can('ordersView')],['newOrder','Nova ordem',can('ordersCreate')],['stock','Estoque',can('stockView')],['services','Serviços e preços',can('servicesManage')],['movements','Movimentações',can('stockView')],['cash','Caixa',can('cashView')],['receivables','Contas a receber',can('cashView')],['reports','Relatórios',isAdmin()],['users','Usuários',can('usersManage')],['profile','Minha conta',true],['settings','Personalização',can('settingsManage')]];qs('#sidebar').innerHTML=items.filter(x=>x[2]).map(([id,l])=>`<button class="nav-btn" data-page="${id}">${l}</button>`).join('');qsa('.nav-btn').forEach(b=>b.onclick=()=>navigate(b.dataset.page))}
 function navigate(page,scroll=true){currentPage=page;qsa('.page').forEach(p=>p.classList.add('hidden'));const target=qs(`#${page}Page`);if(!target)return;target.classList.remove('hidden');qsa('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));const fn={dashboard:renderDashboard,orders:renderOrders,history:renderHistory,newOrder:renderNewOrder,stock:renderStock,services:renderServices,movements:renderMovements,cash:renderCash,receivables:renderReceivables,reports:renderReports,users:renderUsers,profile:renderProfile,settings:renderSettings}[page];fn?.();if(scroll)window.scrollTo({top:0,behavior:'smooth'})}
 function ordersTable(list){if(!list.length)return'<div class="empty">Nenhuma ordem cadastrada.</div>';return`<div class="table-wrap"><table><thead><tr><th>Ordem</th><th>Data</th><th>Cliente</th><th>Veículo</th><th>Serviços</th><th>Subtotal</th><th>Valor final</th><th>Status</th><th>Funcionário</th></tr></thead><tbody>${list.map(o=>{const summary=(o.items||[]).map(i=>`${i.qty||1}x ${i.serviceName}${i.vehicleType?` (${i.vehicleType})`:''}${i.chamberType?` — ${i.chamberType}`:''}${i.material?` / ${i.material}`:''}`).join('<br>')||esc(o.serviceName||o.service||'Serviço');return`<tr><td><strong>${esc(orderNumberOf(o))}</strong></td><td>${dateOf(o).toLocaleDateString('pt-BR')}</td><td>${esc(o.customer)}<br><span class="muted">${esc(o.phone||'')}</span></td><td>${esc(o.vehicle||o.vehicleType||'')}<br><span class="muted">${esc(o.plate||'')}</span></td><td>${summary}</td><td>${money(o.subtotal??o.value)}</td><td><strong>${money(o.value)}</strong>${Number(o.adjustment||0)!==0?`<br><span class="muted">Ajuste: ${money(o.adjustment)}</span>`:''}</td><td><span class="status status-${o.status}">${statusLabel(o.status)}</span></td><td>${esc(o.employee||'')}</td></tr>`}).join('')}</tbody></table></div>`}
