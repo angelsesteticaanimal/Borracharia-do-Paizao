@@ -58,3 +58,20 @@
 /* V3.10 - histórico de clientes e veículos */
 .history-search-card{margin-bottom:16px}.history-tabs{display:flex;gap:8px;overflow-x:auto;margin-top:14px}.historyTab{background:#e5e7eb;color:var(--text);white-space:nowrap}.historyTab.active{background:var(--primary);color:#fff}.history-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.history-record{width:100%;text-align:left;cursor:pointer;display:flex;justify-content:space-between;gap:15px;color:var(--text)}.history-record>div:first-child{display:flex;flex-direction:column;gap:5px}.history-record>div:first-child strong{font-size:18px}.history-record>div:first-child span{color:var(--muted)}.history-record-meta{display:flex;flex-direction:column;align-items:flex-end;gap:5px;color:var(--muted);font-size:13px}.history-detail .grid{margin:15px 0}.history-date{font-size:18px}.history-name{font-size:17px}.history-actions{margin-top:16px}.history-vehicle-list{display:flex;gap:9px;flex-wrap:wrap}.history-vehicle-chip{border:1px solid var(--border);background:#f8fafc;border-radius:12px;padding:10px 13px;text-align:left;display:flex;flex-direction:column;gap:3px;cursor:pointer}.history-vehicle-chip span{font-size:12px;color:var(--muted)}.history-ranking{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}.history-ranking:last-child{border-bottom:0}.history-ranking span{color:var(--muted);text-align:right}
 @media(max-width:720px){.history-card-grid{grid-template-columns:1fr}.history-record{flex-direction:column}.history-record-meta{align-items:flex-start}.history-detail .grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+/* V3.11 - recibo, impressão e PDF */
+.receipt-toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.receipt-sheet{max-width:760px;margin:0 auto;background:#fff;color:#111;padding:24px;border:1px solid var(--border);border-radius:14px}
+.receipt-sheet>img{max-width:130px;max-height:95px;object-fit:contain;display:block;margin:0 auto}
+.receipt-sheet h1{text-align:center;margin:8px 0 4px}
+.receipt-sheet>p:first-of-type{text-align:center;color:#444;margin-top:0}
+.receipt-sheet hr{border:0;border-top:1px solid #bbb;margin:16px 0}
+.receipt-meta{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.receipt-sheet table{min-width:0;width:100%;margin-top:12px}
+.receipt-totals{display:grid;gap:7px;text-align:right;margin:18px 0 0 auto;max-width:360px}
+.receipt-totals strong{font-size:18px}
+.receipt-signatures{display:flex;justify-content:space-between;gap:30px;text-align:center;margin-top:60px}
+.receipt-footer{text-align:center!important;margin-top:36px!important;color:#444}
+@media(max-width:620px){.receipt-sheet{padding:14px}.receipt-meta,.receipt-signatures{flex-direction:column}.receipt-signatures{gap:40px}}
+@media print{body *{visibility:hidden}.receipt-sheet,.receipt-sheet *{visibility:visible}.receipt-sheet{position:absolute;left:0;top:0;width:100%;max-width:none;border:0;box-shadow:none}.receipt-toolbar,.modal-close{display:none!important}}
