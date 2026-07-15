@@ -2,6 +2,9 @@ import { initializeApp, deleteApp } from 'https://www.gstatic.com/firebasejs/12.
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence, updatePassword } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, deleteDoc, onSnapshot, serverTimestamp, query, orderBy, runTransaction, getDocs } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
 
+let formInteractionLock=false;
+let formInteractionTimer=null;
+
 const qs=s=>document.querySelector(s), qsa=s=>[...document.querySelectorAll(s)];
 const tenant=(new URLSearchParams(location.search).get('loja')||'demo').toLowerCase().replace(/[^a-z0-9-]/g,'-');
 const money=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -86,6 +89,25 @@ async function init(){
  onAuthStateChanged(auth,async user=>{clearListeners();if(!user){session=null;await loadPublicBrand();show('loginView');return}const p=await getDoc(doc(db,'tenants',tenant,'users',user.uid));if(!p.exists()||p.data().active===false){await signOut(auth);toast('Usuário sem acesso ou bloqueado.');return}session={uid:user.uid,...p.data(),permissions:permissionsOf(p.data())};window._dueAlertShown=false;startRealtime();show('appView');buildMenu();navigate('dashboard')});
 }
 function bindStatic(){
+ // Bloqueio global de reconstrução enquanto qualquer campo estiver sendo digitado.
+ document.addEventListener('focusin',e=>{
+   if(e.target.matches('input,textarea,select,[contenteditable="true"]')){
+     clearTimeout(formInteractionTimer);
+     formInteractionLock=true;
+   }
+ },true);
+ document.addEventListener('focusout',e=>{
+   if(e.target.matches('input,textarea,select,[contenteditable="true"]')){
+     clearTimeout(formInteractionTimer);
+     formInteractionTimer=setTimeout(()=>{formInteractionLock=false},1200);
+   }
+ },true);
+ document.addEventListener('beforeinput',e=>{
+   if(e.target.matches('input,textarea,[contenteditable="true"]')){
+     clearTimeout(formInteractionTimer);
+     formInteractionLock=true;
+   }
+ },true);
  qs('#showSetupBtn').onclick=()=>show('setupView');qs('#backLoginBtn').onclick=()=>show('loginView');qs('#logoutBtn').onclick=()=>signOut(auth);qs('#modalClose').onclick=closeModal;qs('#modal').onclick=e=>{if(e.target.id==='modal')closeModal()};
  qs('#loginForm').onsubmit=async e=>{e.preventDefault();try{show('loading');await signInWithEmailAndPassword(auth,emailFor(qs('#loginUser').value),qs('#loginPassword').value)}catch(err){console.error(err);show('loginView');toast('Usuário ou senha inválidos.')}};
  qs('#setupForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{show('loading');const cred=await createUserWithEmailAndPassword(auth,emailFor(f.get('username')),f.get('password'));await setDoc(doc(db,'tenants',tenant),{businessName:f.get('businessName'),phone:'',address:'',primaryColor:'#f59e0b',logoData:'',ownerUid:cred.user.uid,createdAt:serverTimestamp()});await setDoc(doc(db,'tenants',tenant,'users',cred.user.uid),{name:f.get('name'),username:String(f.get('username')).toLowerCase(),role:'admin',active:true,permissions:{},createdAt:serverTimestamp()});toast('Sistema criado com sucesso.')}catch(err){console.error(err);show('setupView');toast('Não foi possível criar. O usuário pode já existir ou as regras precisam ser atualizadas.')}};
@@ -104,10 +126,12 @@ function startRealtime(){
 function refresh(){
   if(qs('#appView').classList.contains('hidden'))return;
 
-  // Proteção definitiva dos formulários no celular:
-  // não reconstrói a tela de nova ordem nem qualquer modal aberto.
-  // As atualizações em tempo real continuam sendo recebidas nas variáveis,
-  // mas a interface só é redesenhada ao sair e voltar para a tela.
+  // Nunca reconstrói a interface enquanto o usuário estiver com teclado/campo ativo.
+  const active=document.activeElement;
+  const editing=!!active && active.matches?.('input,textarea,select,[contenteditable="true"]');
+  if(formInteractionLock || editing)return;
+
+  // Protege permanentemente os formulários principais.
   if(currentPage==='newOrder')return;
   const modalOpen=!qs('#modal')?.classList.contains('hidden');
   if(modalOpen)return;
@@ -203,7 +227,7 @@ function renderNewOrder(){
  const available=stock.filter(i=>Number(i.qty)>0);
  let lineItems=[];
  const vehicleTypes=['Carro','Moto','SUV/Picape','Quadriciclo','Carrinho de mão','Reboque','Agrícola','Outro'];
- qs('#newOrderPage').innerHTML=`<h1 class="page-title">Nova ordem de serviço</h1><form id="orderForm" class="card form-grid"><label>Cliente<input name="customer" required></label><label>Telefone<input name="phone"></label><label>Tipo de veículo<select name="vehicleType">${vehicleTypes.map(v=>`<option>${v}</option>`).join('')}</select></label><label>Veículo / modelo<input name="vehicle"></label><label>Placa<input name="plate"></label><div class="full"><h3>Serviços da ordem</h3><p class="muted small">Adicione todos os serviços antes de salvar a ordem.</p><div id="orderItemsSummary" class="order-items-summary"></div><div id="orderItems"></div></div><label>Subtotal normal<input id="orderSubtotal" type="number" step="0.01" readonly value="0.00"></label><label>Valor final negociado<input id="orderValue" name="value" type="number" min="0" step="0.01" required value="0.00"></label><label>Diferença comercial<input id="orderAdjustment" readonly value="R$ 0,00"></label><label>Motivo do ajuste<input name="adjustmentReason" placeholder="Ex.: pacote de 3 furos"></label><label>Pagamento<select id="orderPayment" name="payment"><option>Pix</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Fiado</option></select></label><div id="creditFields" class="full card hidden"><h3>Venda fiado</h3><div class="form-grid"><label>Pago na hora<input name="paidNow" type="number" min="0" step="0.01" value="0"></label><label>Forma do valor pago na hora<select name="paidNowMethod"><option>Dinheiro</option><option>Pix</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Não informado</option></select></label><label>Data combinada<input name="dueDate" type="date"></label><label class="full">Observação do pagamento<input name="creditNotes" placeholder="Ex.: pagamento após o salário"></label><label class="check-row full"><input name="whatsappConsent" type="checkbox" checked> Cliente autorizou receber lembrete pelo WhatsApp</label></div></div><label>Status<select name="status"><option value="aberta">Aberta</option><option value="execucao">Em execução</option><option value="concluida">Concluída</option></select></label><label class="full">Observações<textarea name="notes"></textarea></label><div class="full"><button class="btn btn-primary">Salvar ordem completa</button></div></form>`;
+ qs('#newOrderPage').innerHTML=`<h1 class="page-title">Nova ordem de serviço</h1><form id="orderForm" class="card form-grid"><label>Cliente<input id="orderCustomer" name="customer" autocomplete="off" autocapitalize="words" required></label><label>Telefone<input id="orderPhone" name="phone" inputmode="tel" autocomplete="off"></label><label>Tipo de veículo<select name="vehicleType">${vehicleTypes.map(v=>`<option>${v}</option>`).join('')}</select></label><label>Veículo / modelo<input id="orderVehicle" name="vehicle" autocomplete="off"></label><label>Placa<input id="orderPlate" name="plate" autocomplete="off" autocapitalize="characters"></label><div class="full"><h3>Serviços da ordem</h3><p class="muted small">Adicione todos os serviços antes de salvar a ordem.</p><div id="orderItemsSummary" class="order-items-summary"></div><div id="orderItems"></div></div><label>Subtotal normal<input id="orderSubtotal" type="number" step="0.01" readonly value="0.00"></label><label>Valor final negociado<input id="orderValue" name="value" type="number" min="0" step="0.01" required value="0.00"></label><label>Diferença comercial<input id="orderAdjustment" readonly value="R$ 0,00"></label><label>Motivo do ajuste<input name="adjustmentReason" placeholder="Ex.: pacote de 3 furos"></label><label>Pagamento<select id="orderPayment" name="payment"><option>Pix</option><option>Dinheiro</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Fiado</option></select></label><div id="creditFields" class="full card hidden"><h3>Venda fiado</h3><div class="form-grid"><label>Pago na hora<input name="paidNow" type="number" min="0" step="0.01" value="0"></label><label>Forma do valor pago na hora<select name="paidNowMethod"><option>Dinheiro</option><option>Pix</option><option>Cartão de débito</option><option>Cartão de crédito</option><option>Não informado</option></select></label><label>Data combinada<input name="dueDate" type="date"></label><label class="full">Observação do pagamento<input name="creditNotes" placeholder="Ex.: pagamento após o salário"></label><label class="check-row full"><input name="whatsappConsent" type="checkbox" checked> Cliente autorizou receber lembrete pelo WhatsApp</label></div></div><label>Status<select name="status"><option value="aberta">Aberta</option><option value="execucao">Em execução</option><option value="concluida">Concluída</option></select></label><label class="full">Observações<textarea name="notes"></textarea></label><div class="full"><button class="btn btn-primary">Salvar ordem completa</button></div></form>`;
  const pf=pendingOrderPrefill;
  if(pf){const form=qs('#orderForm');form.elements.customer.value=pf.customer||'';form.elements.phone.value=pf.phone||'';form.elements.vehicleType.value=pf.vehicleType||'Carro';form.elements.vehicle.value=pf.vehicle||'';form.elements.plate.value=pf.plate||'';pendingOrderPrefill=null;}
  const recalc=()=>{
