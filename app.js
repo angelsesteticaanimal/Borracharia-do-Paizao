@@ -104,15 +104,13 @@ function startRealtime(){
 function refresh(){
   if(qs('#appView').classList.contains('hidden'))return;
 
-  // Não reconstrói formulários enquanto o usuário está digitando.
-  // Os listeners em tempo real do Firebase podem disparar durante o preenchimento
-  // e, se a tela for recriada, o campo perde o foco e o teclado do celular fecha.
-  const active=document.activeElement;
-  const isTyping=active&&['INPUT','TEXTAREA','SELECT'].includes(active.tagName);
+  // Proteção definitiva dos formulários no celular:
+  // não reconstrói a tela de nova ordem nem qualquer modal aberto.
+  // As atualizações em tempo real continuam sendo recebidas nas variáveis,
+  // mas a interface só é redesenhada ao sair e voltar para a tela.
+  if(currentPage==='newOrder')return;
   const modalOpen=!qs('#modal')?.classList.contains('hidden');
-
-  if(currentPage==='newOrder'&&isTyping)return;
-  if(modalOpen&&isTyping)return;
+  if(modalOpen)return;
 
   navigate(currentPage||'dashboard',false);
 }
