@@ -46,3 +46,15 @@
 
 /* V3.8 */
 .cash-date-filter{display:flex;align-items:center;gap:10px;font-weight:800}.cash-date-filter input{width:auto;min-width:170px}.credit-fields-visible{display:block!important}@media(max-width:620px){.cash-date-filter{width:100%;justify-content:space-between}.cash-date-filter input{min-width:155px}}
+
+/* V3.9 - filtros e arquivo de ordens */
+.order-filter-tabs{display:flex;gap:10px;overflow-x:auto;margin:0 0 16px;padding-bottom:4px}
+.order-filter-tabs .orderFilter{background:#e5e7eb;color:#374151;white-space:nowrap;display:flex;gap:8px;align-items:center}
+.order-filter-tabs .orderFilter span{background:rgba(17,24,39,.12);padding:2px 7px;border-radius:999px;font-size:12px}
+.order-filter-tabs .orderFilter.active{background:var(--primary);color:#fff}
+.order-filter-tabs .orderFilter.active span{background:rgba(255,255,255,.22)}
+
+
+/* V3.10 - histórico de clientes e veículos */
+.history-search-card{margin-bottom:16px}.history-tabs{display:flex;gap:8px;overflow-x:auto;margin-top:14px}.historyTab{background:#e5e7eb;color:var(--text);white-space:nowrap}.historyTab.active{background:var(--primary);color:#fff}.history-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.history-record{width:100%;text-align:left;cursor:pointer;display:flex;justify-content:space-between;gap:15px;color:var(--text)}.history-record>div:first-child{display:flex;flex-direction:column;gap:5px}.history-record>div:first-child strong{font-size:18px}.history-record>div:first-child span{color:var(--muted)}.history-record-meta{display:flex;flex-direction:column;align-items:flex-end;gap:5px;color:var(--muted);font-size:13px}.history-detail .grid{margin:15px 0}.history-date{font-size:18px}.history-name{font-size:17px}.history-actions{margin-top:16px}.history-vehicle-list{display:flex;gap:9px;flex-wrap:wrap}.history-vehicle-chip{border:1px solid var(--border);background:#f8fafc;border-radius:12px;padding:10px 13px;text-align:left;display:flex;flex-direction:column;gap:3px;cursor:pointer}.history-vehicle-chip span{font-size:12px;color:var(--muted)}.history-ranking{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}.history-ranking:last-child{border-bottom:0}.history-ranking span{color:var(--muted);text-align:right}
+@media(max-width:720px){.history-card-grid{grid-template-columns:1fr}.history-record{flex-direction:column}.history-record-meta{align-items:flex-start}.history-detail .grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}}
