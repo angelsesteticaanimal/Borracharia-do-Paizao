@@ -335,55 +335,17 @@ function renderNewOrder(){
  qs('#orderPayment').onchange=toggleCreditFields;
  toggleCreditFields();
  lineItems.push(newLine());renderLines();recalc();
- qs('#orderForm').onsubmit=async e=>{
-  e.preventDefault();
-  const form=e.currentTarget;
-  const saveBtn=form.querySelector('button[type="submit"],button:not([type])');
-  if(form.dataset.saving==='1')return toast('Aguarde: a ordem já está sendo salva.');
-  if(!lineItems.length||lineItems.some(i=>!i.serviceId))return toast('Selecione todos os serviços da ordem.');
-  const f=new FormData(form),subtotal=lineItems.reduce((a,i)=>a+Number(i.qty)*Number(i.unitPrice),0),finalValue=Number(f.get('value'));
-  const payment=f.get('payment'),status=f.get('status');
-  const paid=Math.max(0,Math.min(finalValue,Number(f.get('paidNow')||0))),balance=finalValue-paid,due=f.get('dueDate');
-  if(payment==='Fiado'&&!due)return toast('Informe a data combinada para o pagamento fiado.');
-  form.dataset.saving='1';
-  if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='Salvando...'}
-  try{
-    const orderRef=doc(collection(db,'tenants',tenant,'orders'));
-    const recRef=payment==='Fiado'?doc(collection(db,'tenants',tenant,'receivables')):null;
-    const cashRef=(payment!=='Fiado'&&status==='concluida')||paid>0?doc(collection(db,'tenants',tenant,'cashMovements')):null;
-    const stockRows=[];
-    for(const li of lineItems){
-      if(!li.stockId)continue;
-      const item=stock.find(x=>x.id===li.stockId),q=Number(li.stockQty||1);
-      if(!item||q<=0||q>Number(item.qty))throw new Error(`Estoque insuficiente para ${item?stockName(item):'item'}`);
-      stockRows.push({li,item,q,ref:doc(db,'tenants',tenant,'stock',li.stockId),movementRef:doc(collection(db,'tenants',tenant,'stockMovements'))});
-    }
-    await runTransaction(db,async tx=>{
-      const snapshots=[];
-      for(const row of stockRows)snapshots.push(await tx.get(row.ref));
-      snapshots.forEach((snap,k)=>{const row=stockRows[k];if(!snap.exists()||Number(snap.data().qty)<row.q)throw new Error(`Estoque insuficiente para ${stockName(row.item)}`)});
-      stockRows.forEach((row,k)=>{
-        const current=Number(snapshots[k].data().qty);
-        tx.update(row.ref,{qty:current-row.q,updatedAt:serverTimestamp()});
-        tx.set(row.movementRef,{stockId:row.li.stockId,itemName:stockName(row.item),type:'saida',qty:row.q,reason:`Ordem: ${row.li.serviceName}`,orderId:orderRef.id,employee:session.name,createdBy:session.uid,createdAt:serverTimestamp()});
-      });
-      tx.set(orderRef,{orderNumber:newOrderNumber(),customer:f.get('customer'),phone:f.get('phone'),vehicleType:f.get('vehicleType'),vehicle:f.get('vehicle'),plate:String(f.get('plate')||'').toUpperCase(),items:lineItems,serviceName:lineItems.map(i=>i.serviceName).join(', '),subtotal,value:finalValue,adjustment:finalValue-subtotal,adjustmentReason:f.get('adjustmentReason'),payment,status,notes:f.get('notes'),employee:session.name,createdBy:session.uid,createdAt:serverTimestamp()});
-      if(recRef)tx.set(recRef,{orderId:orderRef.id,orderNumber:'',customer:f.get('customer'),phone:f.get('phone'),total:finalValue,paid,balance,dueDate:due,status:balance<=0?'recebida':'aberta',notes:f.get('creditNotes')||'',whatsappConsent:f.get('whatsappConsent')==='on',paidNowMethod:f.get('paidNowMethod')||'Não informado',paymentTotals:paid>0?{[f.get('paidNowMethod')||'Não informado']:paid}:{},employee:session.name,createdBy:session.uid,createdAt:serverTimestamp()});
-      if(cashRef){
-        const isCredit=payment==='Fiado';
-        tx.set(cashRef,{type:'receita',source:isCredit?'entrada_fiado':'ordem',orderId:orderRef.id,receivableId:isCredit&&recRef?recRef.id:'',description:isCredit?`Entrada fiado - ${f.get('customer')}`:`Venda - ${f.get('customer')}`,amount:isCredit?paid:finalValue,method:isCredit?(f.get('paidNowMethod')||'Não informado'):payment,employee:session.name,createdBy:session.uid,createdAt:serverTimestamp()});
-      }
-    });
-    if(payment==='Fiado'){
-      const rec={id:recRef.id,customer:f.get('customer'),phone:f.get('phone'),total:finalValue,paid,balance,dueDate:due};
-      modal(`<h2>Venda fiado registrada</h2><p><strong>${esc(rec.customer)}</strong></p><p>Valor da venda: ${money(rec.total)}<br>Pago na hora: ${money(rec.paid)}<br>Saldo pendente: ${money(rec.balance)}<br>Data combinada: ${dueDateObj(rec).toLocaleDateString('pt-BR')}</p><div class="actions"><button id="sendCreditWhatsapp" class="btn btn-success">Enviar pelo WhatsApp</button><button id="finishCredit" class="btn btn-secondary">Concluir</button></div>`);
-      qs('#sendCreditWhatsapp').onclick=()=>openWhatsApp(rec,false);
-      qs('#finishCredit').onclick=()=>{closeModal();navigate(can('cashView')?'receivables':'orders')};
-    }else{toast('Ordem salva com todos os serviços.');navigate('orders')}
-  }catch(err){console.error(err);toast(err?.code==='permission-denied'?'Sem permissão para concluir esta venda. Atualize as regras do Firebase.':(err.message||'Não foi possível salvar.'))}
-  finally{form.dataset.saving='0';if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='Salvar ordem completa'}}
- }
-
+ qs('#orderForm').onsubmit=async e=>{e.preventDefault();if(!lineItems.length||lineItems.some(i=>!i.serviceId))return toast('Selecione todos os serviços da ordem.');const f=new FormData(e.target),subtotal=lineItems.reduce((a,i)=>a+Number(i.qty)*Number(i.unitPrice),0),finalValue=Number(f.get('value'));try{for(const li of lineItems){if(!li.stockId)continue;const item=stock.find(x=>x.id===li.stockId),q=Number(li.stockQty||1);if(!item||q>Number(item.qty))throw new Error(`Estoque insuficiente para ${item?stockName(item):'item'}`);await runTransaction(db,async tx=>{const ref=doc(db,'tenants',tenant,'stock',li.stockId),snap=await tx.get(ref);if(!snap.exists()||Number(snap.data().qty)<q)throw new Error('Estoque insuficiente');tx.update(ref,{qty:Number(snap.data().qty)-q,updatedAt:serverTimestamp()})});await addDoc(collection(db,'tenants',tenant,'stockMovements'),{stockId:li.stockId,itemName:stockName(item),type:'saida',qty:q,reason:`Ordem: ${li.serviceName}`,employee:session.name,createdBy:session.uid,createdAt:serverTimestamp()})}const orderRef=await addDoc(collection(db,'tenants',tenant,'orders'),{orderNumber:newOrderNumber(),customer:f.get('customer'),phone:f.get('phone'),vehicleType:f.get('vehicleType'),vehicle:f.get('vehicle'),plate:String(f.get('plate')||'').toUpperCase(),items:lineItems,serviceName:lineItems.map(i=>i.serviceName).join(', '),subtotal,value:finalValue,adjustment:finalValue-subtotal,adjustmentReason:f.get('adjustmentReason'),payment:f.get('payment'),status:f.get('status'),notes:f.get('notes'),employee:session.name,createdBy:session.uid,createdAt:serverTimestamp()});
+if(f.get('payment')!=='Fiado'&&f.get('status')==='concluida')await addDoc(collection(db,'tenants',tenant,'cashMovements'),{type:'receita',source:'ordem',orderId:orderRef.id,description:`Venda - ${f.get('customer')}`,amount:finalValue,method:f.get('payment'),employee:session.name,createdBy:session.uid,createdAt:serverTimestamp()});
+if(f.get('payment')==='Fiado'){
+ const paid=Math.max(0,Math.min(finalValue,Number(f.get('paidNow')||0))),balance=finalValue-paid,due=f.get('dueDate');
+ if(!due)throw new Error('Informe a data combinada para o pagamento fiado.');
+ const recRef=await addDoc(collection(db,'tenants',tenant,'receivables'),{orderId:orderRef.id,customer:f.get('customer'),phone:f.get('phone'),total:finalValue,paid,balance,dueDate:due,status:balance<=0?'recebida':'aberta',notes:f.get('creditNotes')||'',whatsappConsent:f.get('whatsappConsent')==='on',paidNowMethod:f.get('paidNowMethod')||'Não informado',paymentTotals:paid>0?{[f.get('paidNowMethod')||'Não informado']:paid}:{},employee:session.name,createdBy:session.uid,createdAt:serverTimestamp()});
+ if(paid>0)await addDoc(collection(db,'tenants',tenant,'cashMovements'),{type:'receita',source:'entrada_fiado',orderId:orderRef.id,receivableId:recRef.id,description:`Entrada fiado - ${f.get('customer')}`,amount:paid,method:f.get('paidNowMethod')||'Não informado',employee:session.name,createdBy:session.uid,createdAt:serverTimestamp()});
+ const rec={id:recRef.id,customer:f.get('customer'),phone:f.get('phone'),total:finalValue,paid,balance,dueDate:due};
+ modal(`<h2>Venda fiado registrada</h2><p><strong>${esc(rec.customer)}</strong></p><p>Valor da venda: ${money(rec.total)}<br>Pago na hora: ${money(rec.paid)}<br>Saldo pendente: ${money(rec.balance)}<br>Data combinada: ${dueDateObj(rec).toLocaleDateString('pt-BR')}</p><div class="actions"><button id="sendCreditWhatsapp" class="btn btn-success">Enviar pelo WhatsApp</button><button id="finishCredit" class="btn btn-secondary">Concluir</button></div>`);qs('#sendCreditWhatsapp').onclick=()=>openWhatsApp(rec,false);qs('#finishCredit').onclick=()=>{closeModal();navigate('receivables')};
+}else{toast('Ordem salva com todos os serviços.');navigate('orders')}}catch(err){console.error(err);toast(err.message||'Não foi possível salvar.')}}
+}
 function inferOrderStockKind(line){
  const current=line?.stockKind||'';
  if(current)return current;
