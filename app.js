@@ -1,6 +1,6 @@
-import { initializeApp, deleteApp } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js';
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence, updatePassword } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
-import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, deleteDoc, onSnapshot, serverTimestamp, query, orderBy, runTransaction, getDocs } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
+import { initializeApp, deleteApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence, updatePassword } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, deleteDoc, onSnapshot, serverTimestamp, query, orderBy, runTransaction, getDocs } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
 
 let formInteractionLock=false;
 let formInteractionTimer=null;
@@ -104,7 +104,22 @@ async function shareReceiptPdf(o){
 }
 
 
-if(!configured())show('configView');else init();
+if(!configured()) {
+  show('configView');
+} else {
+  init().catch(err=>{
+    console.error('Falha ao iniciar o aplicativo:',err);
+    const loading=document.querySelector('#loading');
+    if(loading) loading.classList.add('hidden');
+    const login=document.querySelector('#loginView');
+    if(login) login.classList.remove('hidden');
+    const toastEl=document.querySelector('#toast');
+    if(toastEl){
+      toastEl.textContent='Falha ao conectar. Atualize a página. Detalhe: '+(err?.message||'erro desconhecido');
+      toastEl.classList.remove('hidden');
+    }
+  });
+}
 async function init(){
  app=initializeApp(window.FIREBASE_CONFIG);auth=getAuth(app);db=getFirestore(app);await setPersistence(auth,browserSessionPersistence);qs('#tenantInfo').textContent=`Borracharia: ${tenant}`;bindStatic();
  onAuthStateChanged(auth,async user=>{clearListeners();if(!user){session=null;await loadPublicBrand();show('loginView');return}const p=await getDoc(doc(db,'tenants',tenant,'users',user.uid));if(!p.exists()||p.data().active===false){await signOut(auth);toast('Usuário sem acesso ou bloqueado.');return}session={uid:user.uid,...p.data(),permissions:permissionsOf(p.data())};window._dueAlertShown=false;startRealtime();show('appView');buildMenu();navigate('dashboard')});
