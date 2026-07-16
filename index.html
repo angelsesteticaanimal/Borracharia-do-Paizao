@@ -6,14 +6,14 @@
   <meta name="theme-color" content="#111827">
   <meta name="robots" content="noindex,nofollow">
   <title>Controle da Borracharia</title>
-  <link rel="stylesheet" href="styles.css?v=3.13.2">
+  <link rel="stylesheet" href="styles.css?v=3.12.3">
 </head>
 <body>
   <div id="toast" class="toast hidden"></div>
   <div id="loading" class="loading-overlay"><div class="loading-card">Conectando ao sistema...</div></div>
 
   <section id="configView" class="view login-view hidden">
-    <div class="login-card"><div class="brand-area"><div class="brand-fallback">!</div><h1>Firebase não configurado</h1><p>Verifique o arquivo firebase-config.js.</p></div></div>
+    <div class="login-card"><div class="brand-area"><div class="brand-fallback">!</div><h1>Firebase não configurado</h1><p>Preencha o arquivo firebase-config.js.</p></div></div>
   </section>
 
   <section id="loginView" class="view login-view hidden">
@@ -78,33 +78,8 @@
   </section>
 
   <div id="modal" class="modal hidden"><div class="modal-card"><button id="modalClose" class="modal-close">×</button><div id="modalBody"></div></div></div>
-
-  <script>
-    window.__appStarted=false;
-    window.addEventListener('error',function(e){
-      if(e.target && e.target.tagName==='SCRIPT'){
-        const l=document.getElementById('loading');
-        if(l) l.innerHTML='<div class="loading-card">Não foi possível carregar um arquivo do sistema.<br><small>Confira se app.js e firebase-config.js foram enviados corretamente.</small><br><button onclick="location.reload()" class="btn btn-primary" style="margin-top:12px">Tentar novamente</button></div>';
-      }
-    },true);
-    setTimeout(function(){
-      const l=document.getElementById('loading');
-      if(l && !l.classList.contains('hidden')){
-        l.innerHTML='<div class="loading-card">A conexão demorou mais que o esperado.<br><small>Atualize a página. Se continuar, confira os arquivos no GitHub.</small><br><button onclick="location.reload()" class="btn btn-primary" style="margin-top:12px">Atualizar</button></div>';
-      }
-    },8000);
-  </script>
-  <script src="firebase-config.js?v=3.13.2"></script>
+  <script src="firebase-config.js?v=3.12.3"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script type="module">
-    import('./app.js?v=3.13.2').catch(function(err){
-      console.error('Falha ao carregar app.js:', err);
-      const l=document.getElementById('loading');
-      if(l){
-        l.classList.remove('hidden');
-        l.innerHTML='<div class="loading-card">Falha ao carregar o aplicativo.<br><small>'+String(err && err.message || err)+'</small><br><button onclick="location.reload()" class="btn btn-primary" style="margin-top:12px">Tentar novamente</button></div>';
-      }
-    });
-  </script>
+  <script type="module" src="app.js?v=3.12.3"></script>
 </body>
 </html>
