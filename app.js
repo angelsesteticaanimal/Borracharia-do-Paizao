@@ -457,3 +457,74 @@ function openUser(u=null){modal(`<h2>${u?'Editar usuário':'Novo usuário'}</h2>
 function renderProfile(){qs('#profilePage').innerHTML=`<h1 class="page-title">Minha conta</h1><form id="profileForm" class="card form-grid"><label>Nome<input name="name" value="${esc(session.name||'')}" required></label><label>Usuário<input value="${esc(session.username||'')}" disabled></label><div class="full"><button class="btn btn-primary">Salvar nome</button></div></form><form id="passwordForm" class="card form-grid" style="margin-top:16px"><label>Nova senha<input name="password" type="password" minlength="6" required></label><label>Confirmar senha<input name="confirm" type="password" minlength="6" required></label><div class="full"><button class="btn btn-secondary">Alterar minha senha</button></div></form>`;qs('#profileForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);await updateDoc(doc(db,'tenants',tenant,'users',session.uid),{name:f.get('name'),updatedAt:serverTimestamp()});toast('Nome atualizado.')};qs('#passwordForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);if(f.get('password')!==f.get('confirm'))return toast('As senhas não conferem.');try{await updatePassword(auth.currentUser,f.get('password'));toast('Senha alterada com sucesso.');e.target.reset()}catch(err){console.error(err);toast('Por segurança, saia e entre novamente antes de alterar a senha.')}}}
 async function compressLogo(file){return new Promise((resolve,reject)=>{const img=new Image(),r=new FileReader();r.onload=()=>img.src=r.result;r.onerror=reject;img.onload=()=>{const max=500,scale=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*scale);c.height=Math.round(img.height*scale);c.getContext('2d').drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL('image/jpeg',.78))};r.readAsDataURL(file)})}
 function renderSettings(){if(!can('settingsManage'))return;qs('#settingsPage').innerHTML=`<h1 class="page-title">Personalização</h1><form id="settingsForm" class="card form-grid"><label>Nome da borracharia<input name="businessName" value="${esc(settings.businessName||'')}" required></label><label>Telefone / WhatsApp<input name="phone" value="${esc(settings.phone||'')}"></label><label class="full">Endereço<input name="address" value="${esc(settings.address||'')}"></label><label>Cor principal<input name="primaryColor" type="color" value="${settings.primaryColor||'#f59e0b'}"></label><label>Logomarca JPG ou PNG<input id="logoInput" type="file" accept="image/jpeg,image/png"></label><div class="full"><img id="settingsLogoPreview" class="preview-logo ${settings.logoData?'':'hidden'}" src="${settings.logoData||''}"></div><div class="full toolbar"><button class="btn btn-primary">Salvar personalização</button><button id="removeLogoBtn" class="btn btn-danger" type="button">Remover logomarca</button></div></form><div class="card" style="margin-top:16px"><strong>Link da borracharia:</strong><br><span class="muted">${location.origin}${location.pathname}?loja=${tenant}</span></div>`;let logo=settings.logoData||'';qs('#logoInput').onchange=async e=>{const f=e.target.files[0];if(!f)return;if(f.size>5*1024*1024)return toast('Imagem muito grande. Use até 5 MB.');logo=await compressLogo(f);qs('#settingsLogoPreview').src=logo;qs('#settingsLogoPreview').classList.remove('hidden')};qs('#removeLogoBtn').onclick=()=>{logo='';qs('#settingsLogoPreview').classList.add('hidden')};qs('#settingsForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);await updateDoc(doc(db,'tenants',tenant),{businessName:f.get('businessName'),phone:f.get('phone'),address:f.get('address'),primaryColor:f.get('primaryColor'),logoData:logo,updatedAt:serverTimestamp()});toast('Personalização salva.')}}
+
+
+// V3.13 - busca inteligente de estoque e ocultação do custo para funcionários
+function stockIsTube(item){
+  const text=normText([item.item,item.name,item.category,item.model,item.measure,item.notes].filter(Boolean).join(' '));
+  return item.type!=='tire' && (text.includes('camara') || text.includes('camera de ar'));
+}
+function stockSearchText(item){
+  return normText([stockName(item),item.item,item.name,item.category,item.condition,item.brand,item.model,item.measure,item.location,item.supplier,item.notes,item.dot,item.tubeType].filter(Boolean).join(' '));
+}
+function renderStock(){
+  if(!can('stockView'))return;
+  const state=window.__stockSearchState||(window.__stockSearchState={mode:'tire'});
+  const isAdm=isAdmin();
+  const mode=state.mode||'tire';
+  const dynamic=mode==='tire'?`<div class="stock-search-fields grid grid-4">
+      <label>Largura<input id="stockWidthSearch" inputmode="numeric" placeholder="Ex.: 175" value="${esc(state.width||'')}"></label>
+      <label>Altura / perfil<input id="stockProfileSearch" inputmode="numeric" placeholder="Ex.: 70" value="${esc(state.profile||'')}"></label>
+      <label>Aro<input id="stockRimSearch" inputmode="numeric" placeholder="Ex.: 14" value="${esc(state.rim||'')}"></label>
+      <label>Medida completa<input id="stockMeasureSearch" placeholder="Ex.: 175/70 R14" value="${esc(state.measure||'')}"></label>
+    </div>`:mode==='tube'?`<div class="stock-search-fields grid grid-3">
+      <label>Medida da câmara<input id="stockTubeMeasureSearch" placeholder="Ex.: 175/70 R14 ou 3.50-8" value="${esc(state.tubeMeasure||'')}"></label>
+      <label>Aro<input id="stockTubeRimSearch" inputmode="numeric" placeholder="Ex.: 14" value="${esc(state.tubeRim||'')}"></label>
+      <label>Marca / descrição<input id="stockTubeNameSearch" placeholder="Digite parte do nome" value="${esc(state.tubeName||'')}"></label>
+    </div>`:`<div class="stock-search-fields"><label>Nome do material<input id="stockMaterialSearch" placeholder="Digite o nome, categoria ou localização" value="${esc(state.material||'')}"></label></div>`;
+  const headers=`<th>Item</th><th>Categoria</th><th>Condição</th><th>Qtd.</th><th>Mínimo</th>${isAdm?'<th>Custo</th>':''}<th>Venda</th><th>Local</th><th>Ações</th>`;
+  const rows=stock.map(i=>`<tr class="stock-row" data-id="${i.id}"><td><strong>${esc(stockName(i))}</strong><br><span class="muted">${esc(i.model||'')} ${esc(i.dot?'DOT '+i.dot:'')}</span></td><td>${esc(i.category||'Material')}</td><td>${esc(i.condition||'—')}</td><td>${i.qty}</td><td>${i.min||0}</td>${isAdm?`<td>${money(i.costPrice)}</td>`:''}<td>${money(i.salePrice)}</td><td>${esc(i.location||'—')}</td><td><div class="actions">${can('stockEdit')?`<button class="btn btn-small btn-secondary editStock" data-id="${i.id}">Editar</button><button class="btn btn-small btn-primary moveStock" data-id="${i.id}">Movimentar</button><button class="btn btn-small btn-danger deleteStock" data-id="${i.id}">Excluir</button>`:'—'}</div></td></tr>`).join('');
+  qs('#stockPage').innerHTML=`<div class="toolbar"><h1 class="page-title">Estoque</h1>${can('stockEdit')?'<button id="addStockBtn" class="btn btn-primary">Cadastrar item</button>':''}</div>
+  <div class="card stock-search-card"><label>O que deseja buscar?<select id="stockSearchMode"><option value="tire" ${mode==='tire'?'selected':''}>Pneu por medida</option><option value="tube" ${mode==='tube'?'selected':''}>Câmara de ar por medida</option><option value="material" ${mode==='material'?'selected':''}>Outro material pelo nome</option></select></label>${dynamic}<div class="stock-search-footer"><span id="stockResultCount" class="muted"></span><button id="clearStockSearch" type="button" class="btn btn-secondary btn-small">Limpar busca</button></div></div>
+  ${!isAdm?'<div class="warning-box stock-employee-note">O custo de compra é exclusivo do administrador. Você vê apenas quantidade, preço de venda e localização.</div>':''}
+  <div class="card table-wrap"><table><thead><tr>${headers}</tr></thead><tbody>${rows||`<tr><td colspan="${isAdm?9:8}" class="empty">Nenhum item cadastrado.</td></tr>`}</tbody></table></div>`;
+
+  const applyFilter=()=>{
+    const get=id=>normText(qs(id)?.value||'');
+    state.mode=qs('#stockSearchMode').value;
+    state.width=qs('#stockWidthSearch')?.value||'';state.profile=qs('#stockProfileSearch')?.value||'';state.rim=qs('#stockRimSearch')?.value||'';state.measure=qs('#stockMeasureSearch')?.value||'';
+    state.tubeMeasure=qs('#stockTubeMeasureSearch')?.value||'';state.tubeRim=qs('#stockTubeRimSearch')?.value||'';state.tubeName=qs('#stockTubeNameSearch')?.value||'';state.material=qs('#stockMaterialSearch')?.value||'';
+    let shown=0;
+    qsa('.stock-row').forEach(row=>{
+      const item=stock.find(x=>x.id===row.dataset.id);if(!item)return;
+      const text=stockSearchText(item);let ok=false;
+      if(state.mode==='tire'){
+        ok=item.type==='tire';
+        const width=get('#stockWidthSearch'),profile=get('#stockProfileSearch'),rim=get('#stockRimSearch'),measure=get('#stockMeasureSearch');
+        if(width)ok=ok&&text.includes(width);
+        if(profile)ok=ok&&text.includes(profile);
+        if(rim){const m=normText(item.measure||'');ok=ok&&(m.includes('r'+rim)||m.endsWith(' '+rim)||m.endsWith('-'+rim)||m.includes('/'+rim));}
+        if(measure)ok=ok&&text.includes(measure);
+      }else if(state.mode==='tube'){
+        ok=stockIsTube(item);
+        const measure=get('#stockTubeMeasureSearch'),rim=get('#stockTubeRimSearch'),name=get('#stockTubeNameSearch');
+        if(measure)ok=ok&&text.includes(measure);
+        if(rim)ok=ok&&text.includes(rim);
+        if(name)ok=ok&&text.includes(name);
+      }else{
+        ok=item.type!=='tire'&&!stockIsTube(item);
+        const term=get('#stockMaterialSearch');if(term)ok=ok&&text.includes(term);
+      }
+      row.classList.toggle('hidden',!ok);if(ok)shown++;
+    });
+    const count=qs('#stockResultCount');if(count)count.textContent=`${shown} item(ns) encontrado(s)`;
+  };
+  qs('#stockSearchMode').onchange=e=>{window.__stockSearchState={mode:e.target.value};renderStock()};
+  ['#stockWidthSearch','#stockProfileSearch','#stockRimSearch','#stockMeasureSearch','#stockTubeMeasureSearch','#stockTubeRimSearch','#stockTubeNameSearch','#stockMaterialSearch'].forEach(id=>{const el=qs(id);if(el)el.oninput=applyFilter});
+  qs('#clearStockSearch').onclick=()=>{window.__stockSearchState={mode:qs('#stockSearchMode').value};renderStock()};
+  qs('#addStockBtn')&&(qs('#addStockBtn').onclick=()=>openStockForm());
+  qsa('.editStock').forEach(b=>b.onclick=()=>openStockForm(stock.find(i=>i.id===b.dataset.id)));
+  qsa('.moveStock').forEach(b=>b.onclick=()=>openMovement(stock.find(i=>i.id===b.dataset.id)));
+  qsa('.deleteStock').forEach(b=>b.onclick=async()=>{if(confirm('Excluir este item do estoque?'))await deleteDoc(doc(db,'tenants',tenant,'stock',b.dataset.id))});
+  applyFilter();
+}

@@ -88,3 +88,13 @@
 .history-order-actions{min-width:150px;display:flex;gap:6px;flex-wrap:wrap}
 .history-order-actions .btn{white-space:nowrap}
 @media(max-width:720px){.history-order-actions{min-width:135px}.history-order-actions .btn{flex:1}}
+
+
+/* V3.13 - busca inteligente de estoque */
+.stock-search-card{margin-bottom:16px}
+.stock-search-card>label{max-width:420px}
+.stock-search-fields{margin-top:14px}
+.stock-search-footer{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-top:14px;flex-wrap:wrap}
+.stock-employee-note{margin-bottom:16px}
+@media(max-width:720px){.stock-search-fields.grid-4,.stock-search-fields.grid-3{grid-template-columns:1fr 1fr}.stock-search-footer .btn{width:auto}}
+@media(max-width:480px){.stock-search-fields.grid-4,.stock-search-fields.grid-3{grid-template-columns:1fr}}
