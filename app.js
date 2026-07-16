@@ -57,7 +57,7 @@ function receiptHtml(o){
  return `<div class="receipt-sheet">${logo}<h1>${esc(settings.businessName||'Borracharia')}</h1><p>${esc(settings.address||'')}${settings.phone?`<br>${esc(settings.phone)}`:''}</p><hr><div class="receipt-meta"><strong>Ordem: ${esc(orderNumberOf(o))}</strong><span>Data: ${dateOf(o).toLocaleString('pt-BR')}</span><span>Status: ${statusLabel(o.status)}</span></div><p><strong>Cliente:</strong> ${esc(o.customer||'')}<br><strong>Telefone:</strong> ${esc(o.phone||'')}<br><strong>Veículo:</strong> ${esc(o.vehicleType||'')} ${esc(o.vehicle||'')} ${o.plate?`— Placa ${esc(o.plate)}`:''}</p><table><thead><tr><th>Serviço</th><th>Qtd.</th><th>Unitário</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table><div class="receipt-totals"><span>Subtotal: ${money(o.subtotal??o.value)}</span>${Number(o.adjustment||0)!==0?`<span>Ajuste comercial: ${money(o.adjustment)}</span>`:''}<strong>Valor final: ${money(o.value)}</strong><span>Pagamento: ${esc(o.payment||'Não informado')}</span></div>${o.notes?`<p><strong>Observações:</strong> ${esc(o.notes)}</p>`:''}<div class="receipt-signatures"><span>________________________________<br>Responsável</span><span>________________________________<br>Cliente</span></div><p class="receipt-footer">Obrigado pela preferência.</p></div>`;
 }
 function openReceipt(o){
- modal(`<div class="receipt-toolbar"><h2>Recibo ${esc(orderNumberOf(o))}</h2><div class="actions"><button id="printReceiptBtn" class="btn btn-primary">Imprimir / salvar PDF</button><button id="shareReceiptPdfBtn" class="btn btn-success">Enviar PDF</button></div></div><div id="receiptPreview">${receiptHtml(o)}</div>`);
+ modal(`<div class="receipt-toolbar"><h2>Recibo ${esc(orderNumberOf(o))}</h2><div class="actions"><button id="printReceiptBtn" class="btn btn-primary">Imprimir / salvar PDF</button><button id="shareReceiptPdfBtn" class="btn btn-success">WhatsApp + PDF</button></div></div><div id="receiptPreview">${receiptHtml(o)}</div>`);
  qs('#printReceiptBtn').onclick=()=>printReceipt(o);
  qs('#shareReceiptPdfBtn').onclick=()=>shareReceiptPdf(o);
 }
@@ -78,8 +78,29 @@ async function buildReceiptPdf(o){
  y+=3;pdf.line(left,y,right,y);y+=7;pdf.setFont('helvetica','bold');pdf.text(`Valor final: ${money(o.value).replace(/ /g,' ')}`,right,y,{align:'right'});y+=6;pdf.setFont('helvetica','normal');pdf.text(`Pagamento: ${o.payment||'Não informado'}`,right,y,{align:'right'});y+=12;if(o.notes){pdf.text(pdf.splitTextToSize(`Observações: ${o.notes}`,180),left,y);y+=12}
  pdf.text('________________________________',left,275);pdf.text('________________________________',120,275);pdf.text('Responsável',38,281,{align:'center'});pdf.text('Cliente',148,281,{align:'center'});return pdf;
 }
+function receiptWhatsAppMessage(o){
+ const business=settings.businessName||'Borracharia';
+ const customer=o.customer?`Olá, ${o.customer}.`:'Olá.';
+ return `${customer}
+
+Segue o recibo da ${business}.
+Ordem: ${orderNumberOf(o)}
+Valor: ${money(o.value)}
+
+O arquivo PDF foi gerado no celular. Anexe o arquivo ${orderNumberOf(o)}.pdf nesta conversa.`;
+}
 async function shareReceiptPdf(o){
- try{const pdf=await buildReceiptPdf(o),blob=pdf.output('blob'),file=new File([blob],`${orderNumberOf(o)}.pdf`,{type:'application/pdf'});if(navigator.canShare?.({files:[file]})){await navigator.share({title:`Recibo ${orderNumberOf(o)}`,text:`Recibo da ${settings.businessName||'borracharia'}`,files:[file]});}else{pdf.save(`${orderNumberOf(o)}.pdf`);toast('PDF baixado. Abra-o e compartilhe pelo WhatsApp.')}}catch(err){console.error(err);toast(err.message||'Não foi possível gerar o PDF.');}
+ try{
+  const phone=brPhone(o.phone||'');
+  if(onlyDigits(o.phone||'').length<10)return toast('Esta ordem não possui um WhatsApp válido com DDD.');
+  const popup=window.open('about:blank','_blank');
+  const pdf=await buildReceiptPdf(o);
+  const filename=`${orderNumberOf(o)}.pdf`;
+  pdf.save(filename);
+  const url=`https://wa.me/${phone}?text=${encodeURIComponent(receiptWhatsAppMessage(o))}`;
+  if(popup){popup.location.href=url}else{window.location.href=url}
+  toast(`PDF ${filename} gerado. No WhatsApp, anexe o arquivo baixado e envie ao cliente.`);
+ }catch(err){console.error(err);toast(err.message||'Não foi possível gerar o PDF ou abrir o WhatsApp.');}
 }
 
 
@@ -233,13 +254,15 @@ function renderOrders(){
  const completedOrders=orders.filter(o=>o.status==='concluida');
  const cancelledRecent=orders.filter(o=>o.status==='cancelada'&&!cancelledIsArchived(o));
  const cancelledArchived=orders.filter(o=>o.status==='cancelada'&&cancelledIsArchived(o));
- const selected=ordersViewFilter==='completed'?completedOrders:ordersViewFilter==='cancelled'?cancelledRecent:ordersViewFilter==='archive'?cancelledArchived:openOrders;
- const title={open:'Ordens em aberto',completed:'Ordens concluídas',cancelled:'Canceladas recentes',archive:'Arquivo de canceladas'}[ordersViewFilter];
- const rows=selected.map(o=>{const locked=orderLocked(o),remaining=o.status==='concluida'&&!locked&&completedDate(o)?Math.max(0,Math.ceil((completedDate(o).getTime()+60000-Date.now())/1000)):null;return`<div class="order-manage-card"><div><strong>${esc(orderNumberOf(o))}</strong> — ${esc(o.customer)} — ${esc(o.plate||o.vehicle||'')}<br><span class="muted">${statusLabel(o.status)} • ${money(o.value)}${locked?' • Bloqueada':remaining!==null?` • bloqueia em ${remaining}s`:''}${o.status==='cancelada'?` • cancelada em ${cancelledDate(o).toLocaleString('pt-BR')}`:''}</span></div><div class="actions">${o.status!=='cancelada'?`<button class="btn btn-small btn-success receiptOrder" data-id="${o.id}">Recibo / PDF</button>`:''}${canEditOrder(o)&&o.status!=='cancelada'?`<button class="btn btn-small btn-primary editOrder" data-id="${o.id}">Editar ordem</button>`:''}${isAdmin()?`<button class="btn btn-small btn-secondary orderHistory" data-id="${o.id}">Histórico</button>`:''}${isAdmin()&&o.status==='cancelada'?`<button class="btn btn-small btn-danger deleteCancelledOrder" data-id="${o.id}">Excluir definitivamente</button>`:''}</div></div>`}).join('');
- qs('#ordersPage').innerHTML=`<div class="toolbar"><h1 class="page-title">Ordens de serviço</h1>${can('ordersCreate')?'<button id="goNewOrder" class="btn btn-primary">Nova ordem</button>':''}</div><div class="order-filter-tabs"><button class="btn orderFilter ${ordersViewFilter==='open'?'active':''}" data-filter="open">Em aberto <span>${openOrders.length}</span></button><button class="btn orderFilter ${ordersViewFilter==='completed'?'active':''}" data-filter="completed">Concluídas <span>${completedOrders.length}</span></button><button class="btn orderFilter ${ordersViewFilter==='cancelled'?'active':''}" data-filter="cancelled">Canceladas <span>${cancelledRecent.length}</span></button><button class="btn orderFilter ${ordersViewFilter==='archive'?'active':''}" data-filter="archive">Arquivo <span>${cancelledArchived.length}</span></button></div><div class="card"><h3>${title}</h3>${ordersTable(selected)}</div><div class="card" style="margin-top:16px"><h3>Gerenciar ${title.toLowerCase()}</h3><p class="muted small">A tela abre mostrando somente ordens abertas ou em execução. Ordens canceladas ficam separadas; após 24 horas passam automaticamente para o Arquivo de canceladas. Administradores podem excluir definitivamente cancelamentos feitos para teste ou por erro.</p>${rows||'<div class="empty">Nenhuma ordem nesta lista.</div>'}</div>`;
+ const allOrders=[...orders].sort((a,b)=>dateOf(b)-dateOf(a));
+ const selected=ordersViewFilter==='completed'?completedOrders:ordersViewFilter==='cancelled'?cancelledRecent:ordersViewFilter==='archive'?cancelledArchived:ordersViewFilter==='all'?allOrders:openOrders;
+ const title={open:'Ordens em aberto',completed:'Ordens concluídas',cancelled:'Canceladas recentes',archive:'Ordens canceladas arquivadas',all:'Todas as ordens'}[ordersViewFilter];
+ const rows=selected.map(o=>{const locked=orderLocked(o),remaining=o.status==='concluida'&&!locked&&completedDate(o)?Math.max(0,Math.ceil((completedDate(o).getTime()+60000-Date.now())/1000)):null;return`<div class="order-manage-card"><div><strong>${esc(orderNumberOf(o))}</strong> — ${esc(o.customer)} — ${esc(o.plate||o.vehicle||'')}<br><span class="muted">${statusLabel(o.status)} • ${money(o.value)}${locked?' • Bloqueada':remaining!==null?` • bloqueia em ${remaining}s`:''}${o.status==='cancelada'?` • cancelada em ${cancelledDate(o).toLocaleString('pt-BR')}`:''}</span></div><div class="actions"><button class="btn btn-small btn-success receiptOrder" data-id="${o.id}">Recibo / PDF</button><button class="btn btn-small btn-whatsapp shareReceiptOrder" data-id="${o.id}">WhatsApp + PDF</button>${canEditOrder(o)&&o.status!=='cancelada'?`<button class="btn btn-small btn-primary editOrder" data-id="${o.id}">Editar ordem</button>`:''}${isAdmin()?`<button class="btn btn-small btn-secondary orderHistory" data-id="${o.id}">Histórico</button>`:''}${isAdmin()&&o.status==='cancelada'?`<button class="btn btn-small btn-danger deleteCancelledOrder" data-id="${o.id}">Excluir definitivamente</button>`:''}</div></div>`}).join('');
+ qs('#ordersPage').innerHTML=`<div class="toolbar"><h1 class="page-title">Ordens de serviço</h1>${can('ordersCreate')?'<button id="goNewOrder" class="btn btn-primary">Nova ordem</button>':''}</div><div class="order-filter-tabs"><button class="btn orderFilter ${ordersViewFilter==='open'?'active':''}" data-filter="open">Em aberto <span>${openOrders.length}</span></button><button class="btn orderFilter ${ordersViewFilter==='completed'?'active':''}" data-filter="completed">Concluídas <span>${completedOrders.length}</span></button><button class="btn orderFilter ${ordersViewFilter==='cancelled'?'active':''}" data-filter="cancelled">Canceladas <span>${cancelledRecent.length}</span></button><button class="btn orderFilter ${ordersViewFilter==='archive'?'active':''}" data-filter="archive">Arquivadas <span>${cancelledArchived.length}</span></button><button class="btn orderFilter ${ordersViewFilter==='all'?'active':''}" data-filter="all">Todas <span>${allOrders.length}</span></button></div><div class="card"><h3>${title}</h3>${ordersTable(selected)}</div><div class="card" style="margin-top:16px"><h3>Gerenciar ${title.toLowerCase()}</h3><p class="muted small">Use os filtros para acessar qualquer ordem. O recibo pode ser aberto, impresso, salvo em PDF ou compartilhado pelo WhatsApp individualmente, inclusive depois da conclusão.</p>${rows||'<div class="empty">Nenhuma ordem nesta lista.</div>'}</div>`;
  qs('#goNewOrder')&&(qs('#goNewOrder').onclick=()=>navigate('newOrder'));
  qsa('.orderFilter').forEach(b=>b.onclick=()=>{ordersViewFilter=b.dataset.filter;renderOrders()});
  qsa('.receiptOrder').forEach(b=>b.onclick=()=>openReceipt(orders.find(o=>o.id===b.dataset.id)));
+ qsa('.shareReceiptOrder').forEach(b=>b.onclick=async()=>{const o=orders.find(x=>x.id===b.dataset.id);if(o)await shareReceiptPdf(o)});
  qsa('.editOrder').forEach(b=>b.onclick=()=>openOrderEditor(orders.find(o=>o.id===b.dataset.id)));
  qsa('.orderHistory').forEach(b=>b.onclick=()=>showOrderHistory(orders.find(o=>o.id===b.dataset.id)));
  qsa('.deleteCancelledOrder').forEach(b=>b.onclick=()=>confirmDeleteCancelledOrder(orders.find(o=>o.id===b.dataset.id)));
