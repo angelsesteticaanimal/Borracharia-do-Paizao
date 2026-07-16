@@ -82,3 +82,9 @@
 .order-filter-tabs .btn{white-space:nowrap;background:#e5e7eb;color:#111827}
 .order-filter-tabs .btn.active{background:var(--primary);color:#fff}
 @media(max-width:720px){.order-manage-card .actions{display:grid;grid-template-columns:1fr 1fr}.order-manage-card .actions .btn{width:100%}}
+
+
+/* V3.12.3 - ações de recibo no histórico do cliente e veículo */
+.history-order-actions{min-width:150px;display:flex;gap:6px;flex-wrap:wrap}
+.history-order-actions .btn{white-space:nowrap}
+@media(max-width:720px){.history-order-actions{min-width:135px}.history-order-actions .btn{flex:1}}
