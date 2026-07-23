@@ -3,7 +3,7 @@ import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, on
 import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, deleteDoc, onSnapshot, serverTimestamp, query, orderBy, runTransaction, getDocs } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
 
 
-// V3.12.7.9 — evita contas duplicadas e permite vincular uma entrada já existente no caixa.
+// V3.12.7.9.1 — corrige o painel para contabilizar venda fiado com entrada e saldo pendente.
 function applyBlueButtonContrast(root = document) {
   const selectors = [
     '.btn-primary',
@@ -208,7 +208,30 @@ function buildMenu(){const items=[['dashboard','Painel',true],['orders','Ordens 
 function navigate(page,scroll=true){if(page==='newOrder'&&!canUseCompleteOrder())page=canUseQuickOrder()?'quickOrder':'dashboard';if(page==='quickOrder'&&!canUseQuickOrder())page=canUseCompleteOrder()?'newOrder':'dashboard';currentPage=page;qsa('.page').forEach(p=>p.classList.add('hidden'));const target=qs(`#${page}Page`);if(!target)return;target.classList.remove('hidden');qsa('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));const fn={dashboard:renderDashboard,orders:renderOrders,history:renderHistory,quickOrder:renderQuickOrder,newOrder:renderNewOrder,stock:renderStock,services:renderServices,movements:renderMovements,cash:renderCash,receivables:renderReceivables,reports:renderReports,marketplace:renderMarketplace,suppliers:renderSuppliers,users:renderUsers,profile:renderProfile,settings:renderSettings}[page];fn?.();if(scroll)window.scrollTo({top:0,behavior:'smooth'})}
 function ordersTable(list){if(!list.length)return'<div class="empty">Nenhuma ordem cadastrada.</div>';return`<div class="table-wrap"><table><thead><tr><th>Ordem</th><th>Data</th><th>Cliente</th><th>Veículo</th><th>Serviços</th><th>Subtotal</th><th>Valor final</th><th>Status</th><th>Funcionário</th></tr></thead><tbody>${list.map(o=>{const summary=(o.items||[]).map(i=>`${i.qty||1}x ${i.serviceName}${i.vehicleType?` (${i.vehicleType})`:''}${i.chamberType?` — ${i.chamberType}`:''}${i.material?` / ${i.material}`:''}`).join('<br>')||esc(o.serviceName||o.service||'Serviço');return`<tr><td><strong>${esc(orderNumberOf(o))}</strong></td><td>${dateOf(o).toLocaleDateString('pt-BR')}</td><td>${esc(o.customer)}<br><span class="muted">${esc(o.phone||'')}</span></td><td>${esc(o.vehicle||o.vehicleType||'')}<br><span class="muted">${esc(o.plate||'')}</span></td><td>${summary}</td><td>${money(o.subtotal??o.value)}</td><td><strong>${money(o.value)}</strong>${Number(o.adjustment||0)!==0?`<br><span class="muted">Ajuste: ${money(o.adjustment)}</span>`:''}</td><td><span class="status status-${o.status}">${statusLabel(o.status)}</span></td><td>${esc(o.employee||'')}</td></tr>`}).join('')}</tbody></table></div>`}
 
-function renderDashboard(){const today=new Date().toDateString(),tod=orders.filter(o=>dateOf(o).toDateString()===today),rev=tod.filter(o=>o.status==='concluida').reduce((a,o)=>a+Number(o.value||0),0),low=stock.filter(i=>Number(i.qty)<=Number(i.min||0)).length,openOrders=orders.filter(o=>['aberta','execucao'].includes(o.status));const cards=[`<div class="card"><div class="stat-label">Serviços hoje</div><div class="stat-value">${tod.length}</div></div>`,isAdmin()?`<div class="card"><div class="stat-label">Faturamento hoje</div><div class="stat-value">${money(rev)}</div></div>`:'',`<div class="card"><div class="stat-label">Em aberto</div><div class="stat-value">${openOrders.length}</div></div>`,`<div class="card"><div class="stat-label">Estoque baixo</div><div class="stat-value">${low}</div></div>`].join('');qs('#dashboardPage').innerHTML=`<h1 class="page-title">Painel</h1><div class="grid ${isAdmin()?'grid-4':'grid-3'}">${cards}</div>${can('cashView')?receivableAlertHtml():''}<div class="card" style="margin-top:16px"><h3>Ordens em aberto</h3>${ordersTable(openOrders.slice(0,5))}</div>`}
+function renderDashboard(){
+ const today=new Date().toDateString();
+ const tod=orders.filter(o=>dateOf(o).toDateString()===today);
+ const completedToday=tod.filter(o=>o.status==='concluida');
+ const completedIds=new Set(completedToday.map(o=>o.id));
+ const completedRevenue=completedToday.reduce((a,o)=>a+Number(o.value||0),0);
+ // Algumas vendas fiado podem gerar a conta a receber antes de a OS ficar marcada como concluída.
+ // Nesses casos, soma o valor total da conta somente quando a OS ainda não foi contabilizada acima.
+ const creditSalesNotCounted=receivables.filter(r=>dateOf(r).toDateString()===today&&(!r.orderId||!completedIds.has(r.orderId))).reduce((a,r)=>a+Number(r.total||0),0);
+ const grossRevenue=completedRevenue+creditSalesNotCounted;
+ const receivedToday=cashMovements.filter(m=>m.type==='receita'&&dateOf(m).toDateString()===today).reduce((a,m)=>a+Number(m.amount||0),0);
+ const pendingFromToday=receivables.filter(r=>dateOf(r).toDateString()===today).reduce((a,r)=>a+Math.max(0,Number(r.balance||0)),0);
+ const low=stock.filter(i=>Number(i.qty)<=Number(i.min||0)).length;
+ const openOrders=orders.filter(o=>['aberta','execucao'].includes(o.status));
+ const cards=[
+  `<div class="card"><div class="stat-label">Serviços hoje</div><div class="stat-value">${tod.length}</div></div>`,
+  isAdmin()?`<div class="card"><div class="stat-label">Faturamento em vendas hoje</div><div class="stat-value">${money(grossRevenue)}</div></div>`:'',
+  isAdmin()?`<div class="card"><div class="stat-label">Recebido hoje</div><div class="stat-value">${money(receivedToday)}</div></div>`:'',
+  isAdmin()?`<div class="card"><div class="stat-label">A receber das vendas de hoje</div><div class="stat-value">${money(pendingFromToday)}</div></div>`:'',
+  `<div class="card"><div class="stat-label">Em aberto</div><div class="stat-value">${openOrders.length}</div></div>`,
+  `<div class="card"><div class="stat-label">Estoque baixo</div><div class="stat-value">${low}</div></div>`
+ ].join('');
+ qs('#dashboardPage').innerHTML=`<h1 class="page-title">Painel</h1><div class="grid ${isAdmin()?'grid-3':'grid-3'}">${cards}</div>${can('cashView')?receivableAlertHtml():''}<div class="card" style="margin-top:16px"><h3>Ordens em aberto</h3>${ordersTable(openOrders.slice(0,5))}</div>`
+}
 function completedDate(o){return o?.completedAt?.toDate?.()||null}
 function cancelledDate(o){return o?.cancelledAt?.toDate?.()||o?.updatedAt?.toDate?.()||dateOf(o)}
 function cancelledIsArchived(o){const d=cancelledDate(o);return !!d&&Date.now()-d.getTime()>=24*60*60*1000}
