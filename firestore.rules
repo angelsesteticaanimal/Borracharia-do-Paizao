@@ -59,6 +59,14 @@ service cloud.firestore {
         allow create: if member(tenantId) && (perm(tenantId,'ordersCreate') || perm(tenantId,'cashEdit'));
         allow update, delete: if admin(tenantId);
       }
+
+      match /marketplaceCampaigns/{id} {
+        allow read: if true;
+        allow create, update, delete: if admin(tenantId);
+      }
+      match /campaignSends/{id} {
+        allow read, create, update, delete: if admin(tenantId);
+      }
       match /expenses/{id} {
         allow read: if perm(tenantId,'cashView');
         allow create, update, delete: if admin(tenantId) || perm(tenantId,'cashEdit');
