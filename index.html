@@ -9,7 +9,19 @@
   <meta name="theme-color" content="#111827">
   <meta name="robots" content="noindex,nofollow">
   <title>Controle da Borracharia</title>
-  <link rel="stylesheet" href="styles.css?v=3.12.7.8">
+  <link rel="stylesheet" href="styles.css?v=3.12.7.8.2">
+
+  <style>
+    /* Melhor contraste nos elementos com fundo azul */
+    .btn-primary,
+    .nav-btn.active {
+      color: #ffd700 !important;
+    }
+    .btn-primary:hover,
+    .nav-btn.active:hover {
+      color: #ffea70 !important;
+    }
+  </style>
 </head>
 <body>
   <div id="toast" class="toast hidden"></div>
@@ -84,8 +96,8 @@
   </section>
 
   <div id="modal" class="modal hidden"><div class="modal-card"><button id="modalClose" class="modal-close">×</button><div id="modalBody"></div></div></div>
-  <script src="firebase-config.js?v=3.12.7.8"></script>
+  <script src="firebase-config.js?v=3.12.7.8.2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script type="module" src="app.js?v=3.12.7.8.1"></script>
+  <script type="module" src="app.js?v=3.12.7.8.2"></script>
 </body>
 </html>
