@@ -2,6 +2,46 @@ import { initializeApp, deleteApp } from 'https://www.gstatic.com/firebasejs/12.
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence, updatePassword } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, addDoc, deleteDoc, onSnapshot, serverTimestamp, query, orderBy, runTransaction, getDocs } from 'https://www.gstatic.com/firebasejs/12.15.0/firebase-firestore.js';
 
+
+// V3.12.7.8.3 — contraste definitivo: texto amarelo em todos os controles com fundo azul.
+function applyBlueButtonContrast(root = document) {
+  const selectors = [
+    '.btn-primary',
+    '.nav-btn.active',
+    'button[style*="background: blue"]',
+    'button[style*="background-color: blue"]',
+    'button[style*="#0000ff"]',
+    'button[style*="rgb(0, 0, 255)"]'
+  ];
+  root.querySelectorAll?.(selectors.join(',')).forEach(el => {
+    el.style.setProperty('color', '#FFD700', 'important');
+    el.querySelectorAll?.('*').forEach(child => child.style.setProperty('color', '#FFD700', 'important'));
+  });
+}
+
+const blueContrastStyle = document.createElement('style');
+blueContrastStyle.id = 'blue-button-yellow-text-v312783';
+blueContrastStyle.textContent = `
+  button.btn-primary,
+  .btn.btn-primary,
+  .sidebar .nav-btn.active,
+  nav .nav-btn.active,
+  button.nav-btn.active,
+  button.btn-primary *,
+  .btn.btn-primary *,
+  .sidebar .nav-btn.active *,
+  button.nav-btn.active * {
+    color: #FFD700 !important;
+    -webkit-text-fill-color: #FFD700 !important;
+  }
+`;
+document.head.appendChild(blueContrastStyle);
+new MutationObserver(() => applyBlueButtonContrast()).observe(document.documentElement, {subtree:true, childList:true, attributes:true, attributeFilter:['class','style']});
+document.addEventListener('DOMContentLoaded', () => applyBlueButtonContrast());
+setTimeout(() => applyBlueButtonContrast(), 250);
+setTimeout(() => applyBlueButtonContrast(), 1200);
+
+
 let formInteractionLock=false;
 let formInteractionTimer=null;
 
