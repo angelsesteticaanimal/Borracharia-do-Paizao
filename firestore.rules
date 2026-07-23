@@ -64,6 +64,9 @@ service cloud.firestore {
         allow read: if true;
         allow create, update, delete: if admin(tenantId);
       }
+      match /suppliers/{id} {
+        allow read, create, update, delete: if admin(tenantId);
+      }
       match /campaignSends/{id} {
         allow read, create, update, delete: if admin(tenantId);
       }
