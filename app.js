@@ -576,7 +576,7 @@ function campaignStatus(c){const today=new Date();today.setHours(0,0,0,0);const 
 function campaignActive(c){return campaignStatus(c)==='Ativa'}
 function uniqueMarketingContacts(){const map=new Map();[...orders,...receivables].forEach(x=>{const digits=onlyDigits(x.phone);if(digits.length<10)return;const key=digits.startsWith('55')?digits.slice(2):digits;const d=dateOf(x).getTime();const old=map.get(key);if(!old||d>old.date)map.set(key,{phone:key,name:x.customer||'Cliente',date:d,consent:x.marketingConsent===true||x.whatsappConsent===true})});return [...map.values()].sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR'))}
 function marketplacePublicUrl(){const u=new URL('marketplace.html',location.href);u.searchParams.set('loja',tenant);return u.toString()}
-function campaignMessage(c,contact){const business=settings.businessName||'Borracharia',market=marketplacePublicUrl();return `Olá, ${contact.name||'cliente'}!\n\n📢 *${c.title}*\n${c.message||''}${c.link?`\n\nMais detalhes desta oferta: ${c.link}`:''}\n\n🌐 *Acesse nosso site e veja as ofertas que preparamos pra você:*\n${market}\n\nMensagem enviada por ${business}.${c.kind==='external'?`\nPublicidade de ${c.advertiser||'anunciante parceiro'}.`:''}\nCaso não queira receber novas promoções, informe SAIR.`}
+function campaignMessage(c,contact){const market=marketplacePublicUrl();return `🛞 *BORRACHARIA DO PAIZÃO*\n\nOlá, ${contact.name||'cliente'}!\n\nAcesse o site no endereço abaixo e confira as ofertas que preparamos para você:\n\n${market}`}
 function todayKey(){return new Date().toISOString().slice(0,10)}
 function sentToday(campaignId,phone){return campaignSends.some(s=>s.campaignId===campaignId&&s.phone===phone&&s.dateKey===todayKey())}
 function renderMarketplace(){
