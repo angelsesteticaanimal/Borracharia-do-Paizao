@@ -684,30 +684,45 @@ function openReceivePayment(r){
  qs('#receiveForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target),amount=Number(f.get('amount')),method=f.get('method');if(amount<=0||amount>Number(r.balance))return toast('Informe um valor válido.');const paid=Number(r.paid||0)+amount,balance=Math.max(0,Number(r.total||0)-paid),paymentTotals={...(r.paymentTotals||{})};paymentTotals[method]=Number(paymentTotals[method]||0)+amount;await updateDoc(doc(db,'tenants',tenant,'receivables',r.id),{paid,balance,paymentTotals,status:balance<=0?'recebida':'parcial',lastPaymentAt:serverTimestamp(),updatedAt:serverTimestamp()});await addDoc(collection(db,'tenants',tenant,'receivables',r.id,'payments'),{amount,method,notes:f.get('notes')||'',receivedBy:session.name,receivedByUid:session.uid,createdAt:serverTimestamp()});await addDoc(collection(db,'tenants',tenant,'cashMovements'),{type:'receita',source:'recebimento_fiado',receivableId:r.id,orderId:r.orderId||'',description:`Recebimento fiado - ${r.customer}`,amount,method,employee:session.name,createdBy:session.uid,createdAt:serverTimestamp()});toast('Pagamento registrado.');closeModal()}
 }
 function openChangeDue(r){modal(`<h2>Alterar data combinada</h2><form id="dueForm" class="form-stack"><label>Nova data<input name="dueDate" type="date" value="${localDateValue(r.dueDate)}" required></label><label>Motivo<input name="reason" required></label><button class="btn btn-primary">Salvar nova data</button></form>`);qs('#dueForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);await updateDoc(doc(db,'tenants',tenant,'receivables',r.id),{dueDate:f.get('dueDate'),rescheduleReason:f.get('reason'),rescheduledBy:session.name,updatedAt:serverTimestamp()});toast('Data atualizada.');closeModal()}}
+function reportMonthKey(){
+ const saved=sessionStorage.getItem(`reportMonth:${tenant}`);
+ if(saved&&/^\d{4}-\d{2}$/.test(saved))return saved;
+ const now=new Date();return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`
+}
+function reportOrderServices(o){
+ const items=Array.isArray(o.items)&&o.items.length?o.items:[{serviceName:o.serviceName||o.service||'Serviço',qty:1,unitPrice:o.value||0}];
+ return items.map(i=>`${Number(i.qty||1)}x ${i.serviceName||'Serviço'}`).join(', ')
+}
+function reportPayment(o){return o.paymentMethod||o.method||o.payment||o.formaPagamento||'Não informado'}
+function reportEmployee(o){return o.employee||o.responsible||o.createdByName||o.completedByName||o.createdBy||'-'}
+function reportPrintHtml(monthLabel,list,summary,ranking){
+ const business=esc(settings.businessName||'Borracharia do Paizão');
+ const rows=list.map(o=>`<tr><td>${dateOf(o).toLocaleDateString('pt-BR')}</td><td>${esc(orderNumberOf(o))}</td><td>${esc(o.customer||o.customerName||'Não informado')}</td><td>${esc(o.plate||'-')}</td><td>${esc(reportOrderServices(o))}</td><td>${money(o.value||0)}</td><td>${esc(reportPayment(o))}</td><td>${esc(reportEmployee(o))}</td></tr>`).join('');
+ const ranks=ranking.map(([name,x],i)=>`<tr><td>${i+1}º</td><td>${esc(name)}</td><td>${x.qty}</td><td>${money(x.value)}</td></tr>`).join('');
+ return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Relatório ${monthLabel}</title><style>body{font-family:Arial,sans-serif;color:#111827;margin:28px}h1,h2{margin:0 0 12px}.muted{color:#64748b}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0}.box{border:1px solid #cbd5e1;border-radius:10px;padding:14px}.big{font-size:24px;font-weight:700}table{width:100%;border-collapse:collapse;margin-top:14px;font-size:12px}th,td{border:1px solid #cbd5e1;padding:7px;text-align:left;vertical-align:top}th{background:#e2e8f0}@media print{body{margin:10mm}.no-print{display:none}thead{display:table-header-group}.summary{break-inside:avoid}}</style></head><body><h1>${business}</h1><h2>Relatório mensal detalhado — ${monthLabel}</h2><div class="muted">Gerado em ${new Date().toLocaleString('pt-BR')}</div><div class="summary"><div class="box">Faturamento<div class="big">${money(summary.total)}</div></div><div class="box">Ordens concluídas<div class="big">${summary.count}</div></div><div class="box">Ticket médio<div class="big">${money(summary.avg)}</div></div></div><h2>Ordens e serviços</h2><table><thead><tr><th>Data</th><th>OS</th><th>Cliente</th><th>Placa</th><th>Serviços</th><th>Total</th><th>Pagamento</th><th>Responsável</th></tr></thead><tbody>${rows||'<tr><td colspan="8">Nenhuma ordem concluída no período.</td></tr>'}</tbody></table><h2 style="margin-top:24px">Serviços mais utilizados</h2><table><thead><tr><th>Posição</th><th>Serviço</th><th>Quantidade</th><th>Valor somado</th></tr></thead><tbody>${ranks||'<tr><td colspan="4">Sem dados.</td></tr>'}</tbody></table><script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`
+}
 function renderReports(){
  if(!isAdmin())return;
- const now=new Date(),startWeek=new Date(now);startWeek.setHours(0,0,0,0);startWeek.setDate(now.getDate()-((now.getDay()+6)%7));
- const endWeek=new Date(startWeek);endWeek.setDate(startWeek.getDate()+7);
- const startMonth=new Date(now.getFullYear(),now.getMonth(),1),endMonth=new Date(now.getFullYear(),now.getMonth()+1,1);
+ const monthKey=reportMonthKey(),[year,month]=monthKey.split('-').map(Number),startMonth=new Date(year,month-1,1),endMonth=new Date(year,month,1);
+ const monthLabel=startMonth.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
  const completed=orders.filter(o=>o.status==='concluida');
  const inRange=(o,a,b)=>{const d=dateOf(o);return d>=a&&d<b};
- const weekOrders=completed.filter(o=>inRange(o,startWeek,endWeek)),monthOrders=completed.filter(o=>inRange(o,startMonth,endMonth));
- const sum=list=>list.reduce((a,o)=>a+Number(o.value||0),0);
+ const monthOrders=completed.filter(o=>inRange(o,startMonth,endMonth)).sort((a,b)=>dateOf(a)-dateOf(b));
+ const sum=list=>list.reduce((a,o)=>a+Number(o.value||0),0),total=sum(monthOrders),avg=monthOrders.length?total/monthOrders.length:0;
  const serviceStats={};
- monthOrders.forEach(o=>{
-  const items=Array.isArray(o.items)&&o.items.length?o.items:[{serviceName:o.serviceName||o.service||'Serviço',qty:1,unitPrice:o.value||0}];
-  items.forEach(i=>{const name=i.serviceName||'Serviço',qty=Number(i.qty||1),value=qty*Number(i.unitPrice||0);serviceStats[name]??={qty:0,value:0};serviceStats[name].qty+=qty;serviceStats[name].value+=value})
- });
- const ranking=Object.entries(serviceStats).sort((a,b)=>b[1].qty-a[1].qty).slice(0,15);
- const avg=list=>list.length?sum(list)/list.length:0;
- qs('#reportsPage').innerHTML=`<h1 class="page-title">Faturamento e relatórios</h1>
- <div class="grid grid-3">
-  <div class="card"><div class="stat-label">Faturamento semanal</div><div class="stat-value">${money(sum(weekOrders))}</div><div class="muted">${weekOrders.length} ordens concluídas</div></div>
-  <div class="card"><div class="stat-label">Faturamento mensal</div><div class="stat-value">${money(sum(monthOrders))}</div><div class="muted">${monthOrders.length} ordens concluídas</div></div>
-  <div class="card"><div class="stat-label">Ticket médio mensal</div><div class="stat-value">${money(avg(monthOrders))}</div><div class="muted">Média por ordem concluída</div></div>
- </div>
- <div class="card table-wrap" style="margin-top:16px"><h3>Serviços mais utilizados no mês</h3><table><thead><tr><th>Posição</th><th>Serviço</th><th>Quantidade</th><th>Valor normal somado</th></tr></thead><tbody>${ranking.map(([name,x],idx)=>`<tr><td>${idx+1}º</td><td>${esc(name)}</td><td><strong>${x.qty}</strong></td><td>${money(x.value)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Ainda não há serviços concluídos neste mês.</td></tr>'}</tbody></table></div>
- <div class="card" style="margin-top:16px"><h3>Períodos considerados</h3><p class="muted">Semana: ${startWeek.toLocaleDateString('pt-BR')} a ${new Date(endWeek.getTime()-86400000).toLocaleDateString('pt-BR')}<br>Mês: ${startMonth.toLocaleDateString('pt-BR',{month:'long',year:'numeric'})}</p></div>`
+ monthOrders.forEach(o=>{const items=Array.isArray(o.items)&&o.items.length?o.items:[{serviceName:o.serviceName||o.service||'Serviço',qty:1,unitPrice:o.value||0}];items.forEach(i=>{const name=i.serviceName||'Serviço',qty=Number(i.qty||1),value=qty*Number(i.unitPrice||0);serviceStats[name]??={qty:0,value:0};serviceStats[name].qty+=qty;serviceStats[name].value+=value})});
+ const ranking=Object.entries(serviceStats).sort((a,b)=>b[1].qty-a[1].qty).slice(0,30);
+ const methods={};monthOrders.forEach(o=>{const key=reportPayment(o);methods[key]=Number(methods[key]||0)+Number(o.value||0)});
+ qs('#reportsPage').innerHTML=`<div class="toolbar"><h1 class="page-title">Faturamento e relatórios</h1><div class="actions"><button id="printMonthlyReport" class="btn btn-primary">Imprimir / salvar PDF</button></div></div>
+ <div class="card" style="margin-bottom:16px"><div class="form-grid"><label>Escolher o mês do relatório<input id="reportMonth" type="month" value="${monthKey}"></label><div style="display:flex;align-items:end"><button id="openSelectedReport" class="btn btn-primary" style="width:100%">Abrir mês selecionado</button></div></div></div>
+ <div class="grid grid-3"><div class="card"><div class="stat-label">Faturamento em ${esc(monthLabel)}</div><div class="stat-value">${money(total)}</div><div class="muted">${monthOrders.length} ordens concluídas</div></div><div class="card"><div class="stat-label">Ticket médio</div><div class="stat-value">${money(avg)}</div><div class="muted">Média por ordem concluída</div></div><div class="card"><div class="stat-label">Serviços realizados</div><div class="stat-value">${Object.values(serviceStats).reduce((a,x)=>a+x.qty,0)}</div><div class="muted">Quantidade total de serviços</div></div></div>
+ <div class="card table-wrap" style="margin-top:16px"><h3>Resumo por forma de pagamento</h3><table><thead><tr><th>Forma de pagamento</th><th>Valor das vendas</th></tr></thead><tbody>${Object.entries(methods).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<tr><td>${esc(k)}</td><td><strong>${money(v)}</strong></td></tr>`).join('')||'<tr><td colspan="2" class="empty">Sem vendas no mês selecionado.</td></tr>'}</tbody></table></div>
+ <div class="card table-wrap" style="margin-top:16px"><h3>Relatório detalhado de ordens</h3><table><thead><tr><th>Data</th><th>OS</th><th>Cliente</th><th>Placa</th><th>Serviços</th><th>Valor</th><th>Pagamento</th><th>Responsável</th></tr></thead><tbody>${monthOrders.map(o=>`<tr><td>${dateOf(o).toLocaleDateString('pt-BR')}</td><td>${esc(orderNumberOf(o))}</td><td>${esc(o.customer||o.customerName||'Não informado')}</td><td>${esc(o.plate||'-')}</td><td>${esc(reportOrderServices(o))}</td><td><strong>${money(o.value||0)}</strong></td><td>${esc(reportPayment(o))}</td><td>${esc(reportEmployee(o))}</td></tr>`).join('')||'<tr><td colspan="8" class="empty">Nenhuma ordem concluída neste mês.</td></tr>'}</tbody></table></div>
+ <div class="card table-wrap" style="margin-top:16px"><h3>Serviços mais utilizados no mês</h3><table><thead><tr><th>Posição</th><th>Serviço</th><th>Quantidade</th><th>Valor somado</th></tr></thead><tbody>${ranking.map(([name,x],idx)=>`<tr><td>${idx+1}º</td><td>${esc(name)}</td><td><strong>${x.qty}</strong></td><td>${money(x.value)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Ainda não há serviços concluídos neste mês.</td></tr>'}</tbody></table></div>
+ <div class="card" style="margin-top:16px"><h3>Período considerado</h3><p class="muted">${startMonth.toLocaleDateString('pt-BR')} a ${new Date(endMonth.getTime()-86400000).toLocaleDateString('pt-BR')}</p></div>`;
+ qs('#openSelectedReport').onclick=()=>{const v=qs('#reportMonth').value;if(!v)return toast('Escolha um mês.');sessionStorage.setItem(`reportMonth:${tenant}`,v);renderReports();window.scrollTo({top:0,behavior:'smooth'})};
+ qs('#reportMonth').onchange=e=>{sessionStorage.setItem(`reportMonth:${tenant}`,e.target.value)};
+ qs('#printMonthlyReport').onclick=()=>{const w=window.open('','_blank');if(!w)return toast('Permita abrir uma nova janela para imprimir.');w.document.open();w.document.write(reportPrintHtml(monthLabel,monthOrders,{total,count:monthOrders.length,avg},ranking));w.document.close()}
 }
 
 function campaignDate(v){if(!v)return null;const [y,m,d]=String(v).slice(0,10).split('-').map(Number);return new Date(y,m-1,d,0,0,0)}
