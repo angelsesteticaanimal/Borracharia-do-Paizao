@@ -217,29 +217,56 @@ function buildMenu(){const items=[['dashboard','Painel',true],['orders','Ordens 
 function navigate(page,scroll=true){if(page==='newOrder'&&!canUseCompleteOrder())page=canUseQuickOrder()?'quickOrder':'dashboard';if(page==='quickOrder'&&!canUseQuickOrder())page=canUseCompleteOrder()?'newOrder':'dashboard';currentPage=page;qsa('.page').forEach(p=>p.classList.add('hidden'));const target=qs(`#${page}Page`);if(!target)return;target.classList.remove('hidden');qsa('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));const fn={dashboard:renderDashboard,orders:renderOrders,history:renderHistory,quickOrder:renderQuickOrder,newOrder:renderNewOrder,stock:renderStock,services:renderServices,movements:renderMovements,cash:renderCash,receivables:renderReceivables,reports:renderReports,raffle:renderRaffle,publicity:renderPublicity,marketplace:renderMarketplace,suppliers:renderSuppliers,users:renderUsers,profile:renderProfile,settings:renderSettings}[page];fn?.();if(scroll)window.scrollTo({top:0,behavior:'smooth'})}
 function ordersTable(list){if(!list.length)return'<div class="empty">Nenhuma ordem cadastrada.</div>';const showValues=isAdmin();return`<div class="table-wrap"><table><thead><tr><th>Ordem</th><th>Data</th><th>Cliente</th><th>Veículo</th><th>Serviços</th>${showValues?'<th>Subtotal</th><th>Valor final</th>':''}<th>Status</th><th>Funcionário</th></tr></thead><tbody>${list.map(o=>{const summary=(o.items||[]).map(i=>`${i.qty||1}x ${i.serviceName}${i.vehicleType?` (${i.vehicleType})`:''}${i.chamberType?` — ${i.chamberType}`:''}${i.material?` / ${i.material}`:''}`).join('<br>')||esc(o.serviceName||o.service||'Serviço');return`<tr><td><strong>${esc(orderNumberOf(o))}</strong></td><td>${dateOf(o).toLocaleDateString('pt-BR')}</td><td>${esc(o.customer)}<br><span class="muted">${esc(o.phone||'')}</span></td><td>${esc(o.vehicle||o.vehicleType||'')}<br><span class="muted">${esc(o.plate||'')}</span></td><td>${summary}</td>${showValues?`<td>${money(o.subtotal??o.value)}</td><td><strong>${money(o.value)}</strong>${Number(o.adjustment||0)!==0?`<br><span class="muted">Ajuste: ${money(o.adjustment)}</span>`:''}</td>`:''}<td><span class="status status-${o.status}">${statusLabel(o.status)}</span></td><td>${esc(o.employee||'')}</td></tr>`}).join('')}</tbody></table></div>`}
 
+function dashboardDetailRows(kind){
+ const today=new Date().toDateString();
+ const tod=orders.filter(o=>dateOf(o).toDateString()===today);
+ const completedToday=tod.filter(o=>o.status==='concluida');
+ const completedIds=new Set(completedToday.map(o=>o.id));
+ if(kind==='services')return {title:'Serviços registrados hoje',type:'orders',rows:tod};
+ if(kind==='open')return {title:'Ordens em aberto',type:'orders',rows:orders.filter(o=>['aberta','execucao'].includes(o.status))};
+ if(kind==='sales'){
+  const rows=[...completedToday];
+  receivables.filter(r=>dateOf(r).toDateString()===today&&(!r.orderId||!completedIds.has(r.orderId))).forEach(r=>rows.push({id:r.orderId||'',orderNumber:r.orderNumber||'-',customer:r.customer||'',phone:r.phone||'',plate:r.plate||'',serviceName:'Venda a prazo / fiado',value:Number(r.total||0),status:'concluida',_receivable:r}));
+  return {title:'Faturamento em vendas hoje',type:'orders',rows};
+ }
+ if(kind==='received')return {title:'Recebimentos de hoje',type:'cash',rows:cashMovements.filter(m=>m.type==='receita'&&dateOf(m).toDateString()===today)};
+ if(kind==='pending')return {title:'A receber das vendas de hoje',type:'pending',rows:receivables.filter(r=>dateOf(r).toDateString()===today&&Number(r.balance||0)>0)};
+ return {title:'Detalhes',type:'orders',rows:[]};
+}
+function openDashboardDetail(kind){
+ const d=dashboardDetailRows(kind);
+ let body='';
+ if(d.type==='cash')body=`<div class="table-wrap"><table><thead><tr><th>Horário</th><th>Descrição</th><th>Forma</th><th>Valor</th><th>OS</th></tr></thead><tbody>${d.rows.map(m=>{const o=orders.find(x=>x.id===m.orderId);return`<tr><td>${dateOf(m).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</td><td>${esc(m.description||'Recebimento')}</td><td>${esc(m.method||'-')}</td><td><strong>${money(m.amount)}</strong></td><td>${esc(o?orderNumberOf(o):'-')}</td></tr>`}).join('')||'<tr><td colspan="5" class="empty">Nenhum recebimento registrado hoje.</td></tr>'}</tbody></table></div>`;
+ else if(d.type==='pending')body=`<div class="table-wrap"><table><thead><tr><th>OS</th><th>Cliente</th><th>Telefone / placa</th><th>Venda</th><th>Pago</th><th>Saldo</th><th>Ações</th></tr></thead><tbody>${d.rows.map(r=>{const o=orders.find(x=>x.id===r.orderId);return`<tr><td>${esc(o?orderNumberOf(o):(r.orderNumber||'-'))}</td><td>${esc(r.customer||'')}</td><td>${esc(r.phone||'')}<br>${esc(r.plate||o?.plate||'')}</td><td>${money(r.total)}</td><td>${money(r.paid)}</td><td><strong>${money(r.balance)}</strong></td><td><button class="btn btn-small btn-success dashPayDebt" data-id="${r.id}">Dar baixa</button></td></tr>`}).join('')||'<tr><td colspan="7" class="empty">Nenhuma venda de hoje com saldo pendente.</td></tr>'}</tbody></table></div>`;
+ else body=`<div class="table-wrap"><table><thead><tr><th>OS</th><th>Cliente</th><th>Veículo</th><th>Status</th>${isAdmin()?'<th>Valor</th>':''}<th>Ações</th></tr></thead><tbody>${d.rows.map(o=>`<tr><td>${esc(orderNumberOf(o))}</td><td>${esc(o.customer||'')}<br><span class="muted">${esc(o.phone||'')}</span></td><td>${esc(o.plate||o.vehicle||'-')}</td><td>${statusLabel(o.status)}</td>${isAdmin()?`<td><strong>${money(o.value)}</strong></td>`:''}<td><div class="actions">${o.id&&orders.some(x=>x.id===o.id)?`<button class="btn btn-small btn-success dashReceipt" data-id="${o.id}">PDF</button>${o.phone?`<button class="btn btn-small btn-whatsapp dashWhats" data-id="${o.id}">WhatsApp</button>`:''}`:''}</div></td></tr>`).join('')||`<tr><td colspan="${isAdmin()?6:5}" class="empty">Nenhum registro encontrado.</td></tr>`}</tbody></table></div>`;
+ modal(`<h2>${esc(d.title)}</h2><p class="muted">Detalhamento do valor/quantidade mostrado no Painel.</p>${body}`);
+ qsa('.dashReceipt').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.id===b.dataset.id);if(o)openReceipt(o)});
+ qsa('.dashWhats').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.id===b.dataset.id);if(o)shareReceiptPdf(o)});
+ qsa('.dashPayDebt').forEach(b=>b.onclick=()=>{const r=receivables.find(x=>x.id===b.dataset.id);if(r)openHistoryDebtPayment(r)});
+}
 function renderDashboard(){
  const today=new Date().toDateString();
  const tod=orders.filter(o=>dateOf(o).toDateString()===today);
  const completedToday=tod.filter(o=>o.status==='concluida');
  const completedIds=new Set(completedToday.map(o=>o.id));
  const completedRevenue=completedToday.reduce((a,o)=>a+Number(o.value||0),0);
- // Algumas vendas fiado podem gerar a conta a receber antes de a OS ficar marcada como concluída.
- // Nesses casos, soma o valor total da conta somente quando a OS ainda não foi contabilizada acima.
  const creditSalesNotCounted=receivables.filter(r=>dateOf(r).toDateString()===today&&(!r.orderId||!completedIds.has(r.orderId))).reduce((a,r)=>a+Number(r.total||0),0);
  const grossRevenue=completedRevenue+creditSalesNotCounted;
  const receivedToday=cashMovements.filter(m=>m.type==='receita'&&dateOf(m).toDateString()===today).reduce((a,m)=>a+Number(m.amount||0),0);
  const pendingFromToday=receivables.filter(r=>dateOf(r).toDateString()===today).reduce((a,r)=>a+Math.max(0,Number(r.balance||0)),0);
  const low=stock.filter(i=>Number(i.qty)<=Number(i.min||0)).length;
  const openOrders=orders.filter(o=>['aberta','execucao'].includes(o.status));
+ const clickHint='<div class="muted small" style="margin-top:8px">Toque para ver os detalhes</div>';
  const cards=[
-  `<div class="card"><div class="stat-label">Serviços hoje</div><div class="stat-value">${tod.length}</div></div>`,
-  isAdmin()?`<div class="card"><div class="stat-label">Faturamento em vendas hoje</div><div class="stat-value">${money(grossRevenue)}</div></div>`:'',
-  isAdmin()?`<div class="card"><div class="stat-label">Recebido hoje</div><div class="stat-value">${money(receivedToday)}</div></div>`:'',
-  isAdmin()?`<div class="card"><div class="stat-label">A receber das vendas de hoje</div><div class="stat-value">${money(pendingFromToday)}</div></div>`:'',
-  `<div class="card"><div class="stat-label">Em aberto</div><div class="stat-value">${openOrders.length}</div></div>`,
+  `<div class="card dashboard-click" data-detail="services" style="cursor:pointer"><div class="stat-label">Serviços hoje</div><div class="stat-value">${tod.length}</div>${clickHint}</div>`,
+  isAdmin()?`<div class="card dashboard-click" data-detail="sales" style="cursor:pointer"><div class="stat-label">Faturamento em vendas hoje</div><div class="stat-value">${money(grossRevenue)}</div>${clickHint}</div>`:'',
+  isAdmin()?`<div class="card dashboard-click" data-detail="received" style="cursor:pointer"><div class="stat-label">Recebido hoje</div><div class="stat-value">${money(receivedToday)}</div>${clickHint}</div>`:'',
+  isAdmin()?`<div class="card dashboard-click" data-detail="pending" style="cursor:pointer"><div class="stat-label">A receber das vendas de hoje</div><div class="stat-value">${money(pendingFromToday)}</div>${clickHint}</div>`:'',
+  `<div class="card dashboard-click" data-detail="open" style="cursor:pointer"><div class="stat-label">Em aberto</div><div class="stat-value">${openOrders.length}</div>${clickHint}</div>`,
   `<div class="card"><div class="stat-label">Estoque baixo</div><div class="stat-value">${low}</div></div>`
  ].join('');
- qs('#dashboardPage').innerHTML=`<h1 class="page-title">Painel</h1><div class="grid ${isAdmin()?'grid-3':'grid-3'}">${cards}</div>${can('cashView')?receivableAlertHtml():''}<div class="card" style="margin-top:16px"><h3>Ordens em aberto</h3>${ordersTable(openOrders.slice(0,5))}</div>`
+ qs('#dashboardPage').innerHTML=`<h1 class="page-title">Painel</h1><div class="grid ${isAdmin()?'grid-3':'grid-3'}">${cards}</div>${can('cashView')?receivableAlertHtml():''}<div class="card" style="margin-top:16px"><h3>Ordens em aberto</h3>${ordersTable(openOrders.slice(0,5))}</div>`;
+ qsa('.dashboard-click').forEach(c=>c.onclick=()=>openDashboardDetail(c.dataset.detail));
 }
 function completedDate(o){return o?.completedAt?.toDate?.()||null}
 function cancelledDate(o){return o?.cancelledAt?.toDate?.()||o?.updatedAt?.toDate?.()||dateOf(o)}
