@@ -17,6 +17,29 @@
   <link rel="stylesheet" href="styles.css?v=3.12.7.8.3">
 
   <style>
+    /* V3.12.7.15 — Login visual + PWA */
+    #loginView.login-view {
+      min-height:100vh; padding:24px 16px; box-sizing:border-box;
+      background:
+        linear-gradient(rgba(255,255,255,.48),rgba(255,255,255,.62)),
+        url('login-background.webp') center/cover no-repeat fixed;
+    }
+    #loginView .login-card {
+      max-width:440px; margin:0 auto; padding:26px 22px; border-radius:28px;
+      background:rgba(255,255,255,.82); border:1px solid rgba(255,255,255,.72);
+      box-shadow:0 18px 55px rgba(0,25,65,.28); backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+    }
+    #loginView .brand-area:before {
+      content:''; display:block; width:min(290px,82%); aspect-ratio:1.45; margin:0 auto 8px;
+      background:url('logo-paizao.webp') center/contain no-repeat; border-radius:18px;
+    }
+    #loginView #loginLogo, #loginView #loginLogoFallback {display:none !important;}
+    #loginView #loginBusinessName {color:#06366f; margin-top:4px;}
+    #loginView #tenantInfo {color:#46566b;}
+    #loginView input {background:rgba(255,255,255,.94);}
+    @media(max-width:480px){#loginView.login-view{padding:14px 12px;background-attachment:scroll}#loginView .login-card{padding:20px 16px;border-radius:22px}}
+
     /* Melhor contraste nos elementos com fundo azul */
     button.btn-primary,
     .btn.btn-primary,
@@ -109,7 +132,7 @@
   <div id="modal" class="modal hidden"><div class="modal-card"><button id="modalClose" class="modal-close">×</button><div id="modalBody"></div></div></div>
   <script src="firebase-config.js?v=3.12.7.8.3"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script type="module" src="app.js?v=3.12.7.11"></script>
-<script src="pwa-install.js" defer></script>
+  <script type="module" src="app.js?v=3.12.7.15"></script>
+<script src="pwa-install.js?v=3.12.7.15" defer></script>
 </body>
 </html>
