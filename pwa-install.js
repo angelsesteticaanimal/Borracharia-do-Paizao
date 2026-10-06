@@ -1,6 +1,6 @@
-/* V3.12.7.15 — instalação PWA com convite recorrente enquanto não instalado */
+/* V3.12.7.17 — instalação PWA com convite recorrente enquanto não instalado */
 (()=>{
-  if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=3.12.7.15').catch(console.warn));}
+  if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=3.12.7.17').catch(console.warn));}
   const standalone=()=>window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
   if(standalone()) return;
   let deferredPrompt=null;

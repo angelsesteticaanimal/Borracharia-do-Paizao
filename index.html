@@ -7,7 +7,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#031f49">
-  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="manifest" href="manifest.webmanifest?v=3.12.7.17">
   <link rel="icon" href="icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icon-192.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -32,7 +32,7 @@
     }
     #loginView .brand-area:before {
       content:''; display:block; width:min(290px,82%); aspect-ratio:1.45; margin:0 auto 8px;
-      background:url('logo-paizao.webp') center/contain no-repeat; border-radius:18px;
+      background:url('logo-paizao.png') center/contain no-repeat;
     }
     #loginView #loginLogo, #loginView #loginLogoFallback {display:none !important;}
     #loginView #loginBusinessName {color:#06366f; margin-top:4px;}
@@ -59,7 +59,7 @@
   <div id="appSplash" class="app-splash" aria-hidden="true"></div>
   <style>
     html, body { background:#031f49; }
-    .app-splash{position:fixed;inset:0;z-index:999999;background:#031f49 url('splash-paizao.png') center/cover no-repeat;opacity:1;visibility:visible;transition:opacity .32s ease,visibility .32s ease}
+    .app-splash{position:fixed;inset:0;z-index:999999;background:#031f49 url('splash-paizao.jpg') center/cover no-repeat;opacity:1;visibility:visible;transition:opacity .32s ease,visibility .32s ease}
     .app-splash.hide{opacity:0;visibility:hidden;pointer-events:none}
   </style>
   <script>
@@ -149,7 +149,7 @@
   <div id="modal" class="modal hidden"><div class="modal-card"><button id="modalClose" class="modal-close">×</button><div id="modalBody"></div></div></div>
   <script src="firebase-config.js?v=3.12.7.8.3"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script type="module" src="app.js?v=3.12.7.16"></script>
-<script src="pwa-install.js?v=3.12.7.16" defer></script>
+  <script type="module" src="app.js?v=3.12.7.17"></script>
+<script src="pwa-install.js?v=3.12.7.17" defer></script>
 </body>
 </html>
