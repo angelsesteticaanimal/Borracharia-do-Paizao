@@ -6,7 +6,7 @@
   <meta http-equiv="Expires" content="0">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#064a99">
+  <meta name="theme-color" content="#031f49">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon-192.png" type="image/png">
   <link rel="apple-touch-icon" href="icon-192.png">
@@ -56,6 +56,23 @@
   </style>
 </head>
 <body>
+  <div id="appSplash" class="app-splash" aria-hidden="true"></div>
+  <style>
+    html, body { background:#031f49; }
+    .app-splash{position:fixed;inset:0;z-index:999999;background:#031f49 url('splash-paizao.png') center/cover no-repeat;opacity:1;visibility:visible;transition:opacity .32s ease,visibility .32s ease}
+    .app-splash.hide{opacity:0;visibility:hidden;pointer-events:none}
+  </style>
+  <script>
+    (function(){
+      var started=Date.now();
+      function closeSplash(){
+        var wait=Math.max(0,1500-(Date.now()-started));
+        setTimeout(function(){var el=document.getElementById('appSplash');if(el)el.classList.add('hide');},wait);
+      }
+      if(document.readyState==='complete') closeSplash(); else window.addEventListener('load',closeSplash,{once:true});
+      setTimeout(closeSplash,3200);
+    })();
+  </script>
   <div id="toast" class="toast hidden"></div>
   <div id="loading" class="loading-overlay"><div class="loading-card">Conectando ao sistema...</div></div>
 
@@ -132,7 +149,7 @@
   <div id="modal" class="modal hidden"><div class="modal-card"><button id="modalClose" class="modal-close">×</button><div id="modalBody"></div></div></div>
   <script src="firebase-config.js?v=3.12.7.8.3"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script type="module" src="app.js?v=3.12.7.15"></script>
-<script src="pwa-install.js?v=3.12.7.15" defer></script>
+  <script type="module" src="app.js?v=3.12.7.16"></script>
+<script src="pwa-install.js?v=3.12.7.16" defer></script>
 </body>
 </html>

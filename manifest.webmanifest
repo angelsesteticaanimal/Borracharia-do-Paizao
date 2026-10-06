@@ -6,8 +6,8 @@
   "start_url": "./?loja=borracharia-do-paizao",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#063b7a",
-  "theme_color": "#063b7a",
+  "background_color": "#031f49",
+  "theme_color": "#031f49",
   "icons": [
     {
       "src": "./icon-192.png",
