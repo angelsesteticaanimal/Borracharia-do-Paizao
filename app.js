@@ -1082,4 +1082,4 @@ function renderSettings(){
  qs('#removeLogoBackground').onchange=process;
  qs('#removeLogoBtn').onclick=()=>{selectedFile=null;logo='';qs('#logoInput').value='';preview()};
  qs('#settingsForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);try{await updateDoc(doc(db,'tenants',tenant),{businessName:f.get('businessName'),phone:f.get('phone'),address:f.get('address'),primaryColor:f.get('primaryColor'),logoData:logo,updatedAt:serverTimestamp()});settings={...settings,businessName:f.get('businessName'),phone:f.get('phone'),address:f.get('address'),primaryColor:f.get('primaryColor'),logoData:logo};applyBrand();toast('Personalização salva.')}catch(err){console.error(err);toast('Erro ao salvar. Tente uma imagem menor.')}};
-}}
+}
