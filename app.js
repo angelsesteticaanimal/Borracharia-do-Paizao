@@ -60,7 +60,6 @@ const RIMS=['3','4','5','6','7','8','9','10','11','12','13','14','15','16','17',
 const SPECIAL_DIAMETERS=['8','10','11','12','13','14','15','16','18','19','20','21','22','23','24','25','26','27','28','30','32'];
 const SPECIAL_WIDTHS=['2.50','3.00','3.25','3.50','4.00','4.10','4.50','5','6','7','8','9','10','11','12'];
 
-let licenseExpiryLabel='Não informada';
 let app,auth,db,session=null,settings={},orders=[],stock=[],services=[],expenses=[],receivables=[],cashMovements=[],users=[],movements=[],campaigns=[],campaignSends=[],suppliers=[],raffles=[],publicityCampaigns=[],publicitySends=[],supplierLoadError='',unsubs=[],currentPage='dashboard',stockTab='tires',selectedCashDate=new Date().toISOString().slice(0,10),ordersViewFilter='open',historyTab='clients',historySearch='',pendingOrderPrefill=null,stockSearchMode='tire',stockExitPeriod='today',stockExitMonth=new Date().toISOString().slice(0,7),stockExitStart='',stockExitEnd='';
 function show(id){['loading','configView','loginView','setupView','appView'].forEach(x=>qs('#'+x)?.classList.add('hidden'));qs('#'+id)?.classList.remove('hidden')}
 function toast(msg){const e=qs('#toast');e.textContent=msg;e.classList.remove('hidden');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.add('hidden'),3500)}
@@ -156,7 +155,7 @@ async function shareReceiptPdf(o){
 if(!configured())show('configView');else init();
 async function init(){
  app=initializeApp(window.FIREBASE_CONFIG);auth=getAuth(app);db=getFirestore(app);await setPersistence(auth,browserSessionPersistence);qs('#tenantInfo').textContent=`Borracharia: ${tenant}`;bindStatic();
- onAuthStateChanged(auth,async user=>{clearListeners();if(!user){session=null;await loadPublicBrand();show('loginView');return}const p=await getDoc(doc(db,'tenants',tenant,'users',user.uid));if(!p.exists()||p.data().active===false){await signOut(auth);toast('Usuário sem acesso ou bloqueado.');return}session={uid:user.uid,...p.data(),permissions:permissionsOf(p.data())};window._dueAlertShown=false;startRealtime();show('appView');buildMenu();navigate('dashboard');loadLicenseExpiry()});
+ onAuthStateChanged(auth,async user=>{clearListeners();if(!user){session=null;await loadPublicBrand();show('loginView');return}const p=await getDoc(doc(db,'tenants',tenant,'users',user.uid));if(!p.exists()||p.data().active===false){await signOut(auth);toast('Usuário sem acesso ou bloqueado.');return}session={uid:user.uid,...p.data(),permissions:permissionsOf(p.data())};window._dueAlertShown=false;startRealtime();show('appView');buildMenu();navigate('dashboard')});
 }
 function bindStatic(){
  // Bloqueio global de reconstrução enquanto qualquer campo estiver sendo digitado.
@@ -245,16 +244,14 @@ function openDashboardDetail(kind){
  qsa('.dashWhats').forEach(b=>b.onclick=()=>{const o=orders.find(x=>x.id===b.dataset.id);if(o)shareReceiptPdf(o)});
  qsa('.dashPayDebt').forEach(b=>b.onclick=()=>{const r=receivables.find(x=>x.id===b.dataset.id);if(r)openHistoryDebtPayment(r)});
 }
-async function loadLicenseExpiry(){
- // A data é obtida do cadastro administrativo; não é inventada no cliente.
- try {
-  const snap=await getDoc(doc(db,'masterTenants',tenant));
-  const raw=snap.exists()?snap.data().due:null;
-  if(typeof raw==='string' && /^\d{4}-\d{2}-\d{2}$/.test(raw)){
-   const [y,m,d]=raw.split('-');licenseExpiryLabel=`${d}/${m}/${y}`;
-  } else licenseExpiryLabel='Não informada';
- }catch(e){console.info('Vencimento não disponível para este usuário.');licenseExpiryLabel='Não disponível';}
- if(currentPage==='dashboard')renderDashboard();
+function subscriptionDueLabel(){
+ const value=settings?.due;
+ if(!value)return 'Não disponível';
+ if(typeof value==='string' && /^\d{4}-\d{2}-\d{2}$/.test(value)){
+  const [year,month,day]=value.split('-');return `${day}/${month}/${year}`;
+ }
+ const date=value?.toDate?.()||new Date(value);
+ return Number.isNaN(date.getTime())?'Não disponível':date.toLocaleDateString('pt-BR');
 }
 function renderDashboard(){
  const today=new Date().toDateString();
@@ -277,7 +274,7 @@ function renderDashboard(){
   `<div class="card dashboard-click" data-detail="open" style="cursor:pointer"><div class="stat-label">Em aberto</div><div class="stat-value">${openOrders.length}</div>${clickHint}</div>`,
   `<div class="card"><div class="stat-label">Estoque baixo</div><div class="stat-value">${low}</div></div>`
  ].join('');
- qs('#dashboardPage').innerHTML=`<div class="dashboard-heading"><h1 class="page-title">Painel</h1><div class="license-expiry"><span>Expira:</span><strong>${esc(licenseExpiryLabel)}</strong></div></div><div class="grid ${isAdmin()?'grid-3':'grid-3'}">${cards}</div>${can('cashView')?receivableAlertHtml():''}<div class="card" style="margin-top:16px"><h3>Ordens em aberto</h3>${ordersTable(openOrders.slice(0,5))}</div>`;
+ qs('#dashboardPage').innerHTML=`<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px"><h1 class="page-title">Painel</h1><div style="text-align:right;flex-shrink:0;color:inherit"><div style="font-size:14px">Expira:</div><strong style="font-size:17px">${esc(subscriptionDueLabel())}</strong></div></div><div class="grid ${isAdmin()?'grid-3':'grid-3'}">${cards}</div>${can('cashView')?receivableAlertHtml():''}<div class="card" style="margin-top:16px"><h3>Ordens em aberto</h3>${ordersTable(openOrders.slice(0,5))}</div>`;
  qsa('.dashboard-click').forEach(c=>c.onclick=()=>openDashboardDetail(c.dataset.detail));
 }
 function completedDate(o){return o?.completedAt?.toDate?.()||null}
