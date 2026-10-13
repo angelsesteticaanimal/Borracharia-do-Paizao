@@ -60,6 +60,7 @@ const RIMS=['3','4','5','6','7','8','9','10','11','12','13','14','15','16','17',
 const SPECIAL_DIAMETERS=['8','10','11','12','13','14','15','16','18','19','20','21','22','23','24','25','26','27','28','30','32'];
 const SPECIAL_WIDTHS=['2.50','3.00','3.25','3.50','4.00','4.10','4.50','5','6','7','8','9','10','11','12'];
 
+let masterLicense=null;
 let app,auth,db,session=null,settings={},orders=[],stock=[],services=[],expenses=[],receivables=[],cashMovements=[],users=[],movements=[],campaigns=[],campaignSends=[],suppliers=[],raffles=[],publicityCampaigns=[],publicitySends=[],supplierLoadError='',unsubs=[],currentPage='dashboard',stockTab='tires',selectedCashDate=new Date().toISOString().slice(0,10),ordersViewFilter='open',historyTab='clients',historySearch='',pendingOrderPrefill=null,stockSearchMode='tire',stockExitPeriod='today',stockExitMonth=new Date().toISOString().slice(0,7),stockExitStart='',stockExitEnd='';
 function show(id){['loading','configView','loginView','setupView','appView'].forEach(x=>qs('#'+x)?.classList.add('hidden'));qs('#'+id)?.classList.remove('hidden')}
 function toast(msg){const e=qs('#toast');e.textContent=msg;e.classList.remove('hidden');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.add('hidden'),3500)}
@@ -184,6 +185,7 @@ function bindStatic(){
 async function loadPublicBrand(){try{const t=await getDoc(doc(db,'tenants',tenant));const exists=t.exists();settings=exists?t.data():{businessName:'Controle da Borracharia',primaryColor:'#f59e0b',logoData:''};qs('#showSetupBtn')?.classList.toggle('hidden',exists)}catch{settings={businessName:'Controle da Borracharia',primaryColor:'#f59e0b',logoData:''};qs('#showSetupBtn')?.classList.remove('hidden')}applyBrand()}
 function applyBrand(){document.documentElement.style.setProperty('--primary',settings.primaryColor||'#f59e0b');qs('#loginBusinessName').textContent=settings.businessName||'Controle da Borracharia';qs('#headerBusinessName').textContent=settings.businessName||'Borracharia';const has=!!settings.logoData;[['#loginLogo','#loginLogoFallback'],['#headerLogo','#headerLogoFallback']].forEach(([i,f])=>{qs(i).classList.toggle('hidden',!has);qs(f).classList.toggle('hidden',has);if(has)qs(i).src=settings.logoData})}
 function startRealtime(){
+ unsubs.push(onSnapshot(doc(db,'masterTenants',tenant),s=>{masterLicense=s.exists()?s.data():null;refresh()},err=>console.warn('Não foi possível consultar licença:',err)));
  unsubs.push(onSnapshot(doc(db,'tenants',tenant),s=>{settings=s.data()||{};applyBrand();refresh()}));
  if(can('ordersView'))unsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'orders'),orderBy('createdAt','desc')),s=>{orders=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}));
  if(can('stockView')){unsubs.push(onSnapshot(collection(db,'tenants',tenant,'stock'),s=>{stock=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}));unsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'stockMovements'),orderBy('createdAt','desc')),s=>{movements=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}))}
@@ -245,13 +247,24 @@ function openDashboardDetail(kind){
  qsa('.dashPayDebt').forEach(b=>b.onclick=()=>{const r=receivables.find(x=>x.id===b.dataset.id);if(r)openHistoryDebtPayment(r)});
 }
 function subscriptionDueLabel(){
- const value=settings?.due;
+ const value=masterLicense?.due || settings?.due;
  if(!value)return 'Não disponível';
  if(typeof value==='string' && /^\d{4}-\d{2}-\d{2}$/.test(value)){
   const [year,month,day]=value.split('-');return `${day}/${month}/${year}`;
  }
  const date=value?.toDate?.()||new Date(value);
  return Number.isNaN(date.getTime())?'Não disponível':date.toLocaleDateString('pt-BR');
+}
+function licenseNotice(){
+ if(!masterLicense)return '';
+ const due=masterLicense.due;
+ const suspended=masterLicense.status==='suspensa';
+ const today=localDateInput();
+ const days=/^\d{4}-\d{2}-\d{2}$/.test(due||'')?Math.round((Date.parse(due+'T12:00:00')-Date.parse(today+'T12:00:00'))/86400000):null;
+ const expired=days!==null&&days<0;
+ if(!suspended&&!expired&&(days===null||days>7))return '';
+ const label=suspended?'Licença suspensa. Entre em contato com o responsável pelo sistema.':expired?'Licença vencida. Solicite a renovação.':`Atenção: a licença vence em ${days} dia${days===1?'':'s'}.`;
+ return `<div role="alert" style="padding:12px;margin:8px 0 14px;border-radius:10px;background:#fff3cd;color:#513900;font-weight:600">${esc(label)}</div>`;
 }
 function renderDashboard(){
  const today=new Date().toDateString();
@@ -274,7 +287,7 @@ function renderDashboard(){
   `<div class="card dashboard-click" data-detail="open" style="cursor:pointer"><div class="stat-label">Em aberto</div><div class="stat-value">${openOrders.length}</div>${clickHint}</div>`,
   `<div class="card"><div class="stat-label">Estoque baixo</div><div class="stat-value">${low}</div></div>`
  ].join('');
- qs('#dashboardPage').innerHTML=`<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px"><h1 class="page-title">Painel</h1><div style="text-align:right;flex-shrink:0;color:inherit"><div style="font-size:14px">Expira:</div><strong style="font-size:17px">${esc(subscriptionDueLabel())}</strong></div></div><div class="grid ${isAdmin()?'grid-3':'grid-3'}">${cards}</div>${can('cashView')?receivableAlertHtml():''}<div class="card" style="margin-top:16px"><h3>Ordens em aberto</h3>${ordersTable(openOrders.slice(0,5))}</div>`;
+ qs('#dashboardPage').innerHTML=`<div><h1 class="page-title" style="margin-bottom:6px">Painel</h1><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;color:inherit;font-size:12px;line-height:1.4"><div style="min-width:0"><div>Licença:</div><div style="font-weight:600;overflow-wrap:anywhere">${esc(masterLicense?.licenseCode||'Não disponível')}</div></div><div style="text-align:right;flex-shrink:0"><div>Expira:</div><div style="font-weight:600">${esc(subscriptionDueLabel())}</div></div></div></div>${licenseNotice()}<div class="grid ${isAdmin()?'grid-3':'grid-3'}">${cards}</div>${can('cashView')?receivableAlertHtml():''}<div class="card" style="margin-top:16px"><h3>Ordens em aberto</h3>${ordersTable(openOrders.slice(0,5))}</div>`;
  qsa('.dashboard-click').forEach(c=>c.onclick=()=>openDashboardDetail(c.dataset.detail));
 }
 function completedDate(o){return o?.completedAt?.toDate?.()||null}
