@@ -45,6 +45,12 @@
     #loginView #tenantInfo {color:#46566b;}
     #loginView input {background:rgba(255,255,255,.94);}
     @media(max-width:480px){#loginView.login-view{padding:14px 12px;background-attachment:scroll}#loginView .login-card{padding:20px 16px;border-radius:22px}}
+    /* V4.2.5 — títulos de páginas legíveis sobre o fundo azul */
+    #appView main.content .page h1.page-title,
+    #appView main.content .page .toolbar h1.page-title {
+      color: #ffffff !important;
+      -webkit-text-fill-color: #ffffff !important;
+    }
     button.btn-primary,
     .btn.btn-primary,
     .sidebar .nav-btn.active,
@@ -150,7 +156,7 @@
   <div id="modal" class="modal hidden"><div class="modal-card"><button id="modalClose" class="modal-close">×</button><div id="modalBody"></div></div></div>
   <script src="firebase-config.js?v=3.12.7.8.3"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script type="module" src="app.js?v=4.2.4-correcao"></script>
+  <script type="module" src="app.js?v=4.2.5-titulos-brancos"></script>
   <script src="pwa-install.js?v=3.12.7.17" defer></script>
 </body>
 </html>
