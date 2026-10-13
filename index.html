@@ -15,7 +15,6 @@
   <meta name="robots" content="noindex,nofollow">
   <title>Controle da Borracharia</title>
   <link rel="stylesheet" href="styles.css?v=3.12.7.8.3">
-
   <style>
     /* V3.12.7.15 — Login visual + PWA */
     #loginView.login-view {
@@ -30,8 +29,6 @@
       box-shadow:0 18px 55px rgba(0,25,65,.28); backdrop-filter:blur(10px);
       -webkit-backdrop-filter:blur(10px);
     }
-    /* Usa a logomarca carregada pelo aplicativo; na ausência dela,
-       mostra a logo do Paizão apenas na loja original. */
     #loginView .brand-area::before { content:''; display:none; }
     #loginView #loginLogo {
       display:block !important; width:min(290px,85%); height:190px;
@@ -48,20 +45,14 @@
     #loginView #tenantInfo {color:#46566b;}
     #loginView input {background:rgba(255,255,255,.94);}
     @media(max-width:480px){#loginView.login-view{padding:14px 12px;background-attachment:scroll}#loginView .login-card{padding:20px 16px;border-radius:22px}}
-
-    /* Melhor contraste nos elementos com fundo azul */
     button.btn-primary,
     .btn.btn-primary,
     .sidebar .nav-btn.active,
-    button.nav-btn.active {
-      color: #ffd700 !important;
-    }
+    button.nav-btn.active { color: #ffd700 !important; }
     button.btn-primary:hover,
     .btn.btn-primary:hover,
     .sidebar .nav-btn.active:hover,
-    button.nav-btn.active:hover {
-      color: #ffea70 !important;
-    }
+    button.nav-btn.active:hover { color: #ffea70 !important; }
   </style>
 </head>
 <body>
@@ -90,11 +81,9 @@
   </script>
   <div id="toast" class="toast hidden"></div>
   <div id="loading" class="loading-overlay"><div class="loading-card">Conectando ao sistema...</div></div>
-
   <section id="configView" class="view login-view hidden">
     <div class="login-card"><div class="brand-area"><div class="brand-fallback">!</div><h1>Firebase não configurado</h1><p>Preencha o arquivo firebase-config.js.</p></div></div>
   </section>
-
   <section id="loginView" class="view login-view hidden">
     <div class="login-card">
       <div class="brand-area">
@@ -112,7 +101,6 @@
       <p class="muted small">Use o link com <strong>?loja=nome-da-borracharia</strong>.</p>
     </div>
   </section>
-
   <section id="setupView" class="view login-view hidden">
     <div class="login-card">
       <div class="brand-area"><div class="brand-fallback">1</div><h1>Primeira configuração</h1><p>Crie a borracharia e o administrador principal.</p></div>
@@ -126,7 +114,6 @@
       </form>
     </div>
   </section>
-
   <section id="appView" class="view hidden">
     <header class="topbar">
       <div class="topbar-brand">
@@ -160,11 +147,10 @@
       </main>
     </div>
   </section>
-
   <div id="modal" class="modal hidden"><div class="modal-card"><button id="modalClose" class="modal-close">×</button><div id="modalBody"></div></div></div>
   <script src="firebase-config.js?v=3.12.7.8.3"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script type="module" src="app.js?v=4.2.3-modulos"></script>
+  <script type="module" src="app.js?v=4.2.4-correcao"></script>
   <script src="pwa-install.js?v=3.12.7.17" defer></script>
 </body>
 </html>

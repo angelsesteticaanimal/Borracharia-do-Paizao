@@ -73,7 +73,7 @@ function pageAllowed(page){const required={orders:'os',history:'os',quickOrder:'
 
 function modal(html){qs('#modalBody').innerHTML=html;qs('#modal').classList.remove('hidden')}
 function closeModal(){qs('#modal').classList.add('hidden');qs('#modalBody').innerHTML=''}
-function clearListeners(){unsubs.forEach(fn=>fn());unsubs=[]}
+function clearListeners(){stopLicensedRealtime();unsubs.forEach(fn=>fn());unsubs=[];masterLicense=null;licenseModulesKey=null}
 function selectOptions(arr,selected='',custom=true){return arr.map(x=>`<option value="${x}" ${String(selected)===String(x)?'selected':''}>${x}</option>`).join('')+(custom?`<option value="custom" ${selected==='custom'?'selected':''}>Outro / personalizado</option>`:'')}
 function permissionsOf(u){return {...DEFAULT_PERMS,...(u?.permissions||{})}}
 function onlyDigits(v){return String(v||'').replace(/\D/g,'')}
@@ -188,18 +188,53 @@ function bindStatic(){
 }
 async function loadPublicBrand(){try{const t=await getDoc(doc(db,'tenants',tenant));const exists=t.exists();settings=exists?t.data():{businessName:'Controle da Borracharia',primaryColor:'#f59e0b',logoData:''};qs('#showSetupBtn')?.classList.toggle('hidden',exists)}catch{settings={businessName:'Controle da Borracharia',primaryColor:'#f59e0b',logoData:''};qs('#showSetupBtn')?.classList.remove('hidden')}applyBrand()}
 function applyBrand(){document.documentElement.style.setProperty('--primary',settings.primaryColor||'#f59e0b');qs('#loginBusinessName').textContent=settings.businessName||'Controle da Borracharia';qs('#headerBusinessName').textContent=settings.businessName||'Borracharia';const has=!!settings.logoData;[['#loginLogo','#loginLogoFallback'],['#headerLogo','#headerLogoFallback']].forEach(([i,f])=>{qs(i).classList.toggle('hidden',!has);qs(f).classList.toggle('hidden',has);if(has)qs(i).src=settings.logoData})}
+// V4.2.4: listeners de dados só iniciam após carregar a licença.
+let licensedUnsubs=[];
+let licenseModulesKey=null;
+function stopLicensedRealtime(){
+  licensedUnsubs.forEach(fn=>{try{fn()}catch(err){console.warn('Falha ao desligar listener:',err)}});
+  licensedUnsubs=[];
+}
+function startLicensedRealtime(){
+  stopLicensedRealtime();
+  orders=[];stock=[];movements=[];expenses=[];cashMovements=[];receivables=[];
+  campaigns=[];campaignSends=[];suppliers=[];raffles=[];publicityCampaigns=[];publicitySends=[];
+ if(can('ordersView'))licensedUnsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'orders'),orderBy('createdAt','desc')),s=>{orders=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}));
+ if(can('stockView')){licensedUnsubs.push(onSnapshot(collection(db,'tenants',tenant,'stock'),s=>{stock=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}));licensedUnsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'stockMovements'),orderBy('createdAt','desc')),s=>{movements=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}))}
+ licensedUnsubs.push(onSnapshot(collection(db,'tenants',tenant,'services'),s=>{services=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}));
+ if(can('cashView')){licensedUnsubs.push(onSnapshot(collection(db,'tenants',tenant,'expenses'),s=>{expenses=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}));licensedUnsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'cashMovements'),orderBy('createdAt','desc')),s=>{cashMovements=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}))}
+ if(can('cashView')||can('ordersView')||can('ordersCreate'))licensedUnsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'receivables'),orderBy('createdAt','desc')),s=>{receivables=s.docs.map(d=>({id:d.id,...d.data()}));refresh();if(can('cashView'))showDueAlert()},err=>{console.error('Erro ao carregar débitos:',err)}));
+ if(can('usersManage'))licensedUnsubs.push(onSnapshot(collection(db,'tenants',tenant,'users'),s=>{users=s.docs.map(d=>({id:d.id,...d.data(),permissions:permissionsOf(d.data())}));refresh()}));
+ if(isAdmin()&&licensed('marketing')){licensedUnsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'marketplaceCampaigns'),orderBy('createdAt','desc')),s=>{campaigns=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}));licensedUnsubs.push(onSnapshot(collection(db,'tenants',tenant,'campaignSends'),s=>{campaignSends=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}));if(licensed('estoque'))licensedUnsubs.push(onSnapshot(collection(db,'tenants',tenant,'suppliers'),s=>{supplierLoadError='';suppliers=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pt-BR'));refresh()},err=>{console.error('Erro ao carregar fornecedores:',err);supplierLoadError=err?.code==='permission-denied'?'Sem permissão para acessar fornecedores. Publique o firestore.rules desta versão no Firebase.':`Erro ao carregar fornecedores: ${err?.message||err}`;refresh();toast(supplierLoadError)}));if(licensed('sorteios'))licensedUnsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'raffles'),orderBy('createdAt','desc')),s=>{raffles=s.docs.map(d=>({id:d.id,...d.data()}));refresh()},err=>{console.error('Erro ao carregar sorteios:',err);}));licensedUnsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'publicityCampaigns'),orderBy('createdAt','desc')),s=>{publicityCampaigns=s.docs.map(d=>({id:d.id,...d.data()}));refresh()},err=>console.error('Erro ao carregar divulgações:',err)));licensedUnsubs.push(onSnapshot(collection(db,'tenants',tenant,'publicitySends'),s=>{publicitySends=s.docs.map(d=>({id:d.id,...d.data()}));refresh()},err=>console.error('Erro ao carregar envios de divulgação:',err)));}
+ if(isAdmin()&&licensed('sorteios')&&!licensed('marketing'))licensedUnsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'raffles'),orderBy('createdAt','desc')),s=>{raffles=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}));
+}
 function startRealtime(){
- unsubs.push(onSnapshot(doc(db,'masterTenants',tenant),s=>{masterLicense=s.exists()?s.data():null;buildMenu();if(!pageAllowed(currentPage))currentPage='dashboard';refresh()},err=>console.warn('Não foi possível consultar licença:',err)));
+  // Os listeners de licença e da loja não dependem das permissões dos módulos.
+  stopLicensedRealtime();
+  licenseModulesKey=null;
+  masterLicense=null;
  unsubs.push(onSnapshot(doc(db,'tenants',tenant),s=>{settings=s.data()||{};applyBrand();refresh()}));
- if(can('ordersView'))unsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'orders'),orderBy('createdAt','desc')),s=>{orders=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}));
- if(can('stockView')){unsubs.push(onSnapshot(collection(db,'tenants',tenant,'stock'),s=>{stock=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}));unsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'stockMovements'),orderBy('createdAt','desc')),s=>{movements=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}))}
- unsubs.push(onSnapshot(collection(db,'tenants',tenant,'services'),s=>{services=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}));
- if(can('cashView')){unsubs.push(onSnapshot(collection(db,'tenants',tenant,'expenses'),s=>{expenses=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}));unsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'cashMovements'),orderBy('createdAt','desc')),s=>{cashMovements=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}))}
- if(can('cashView')||can('ordersView')||can('ordersCreate'))unsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'receivables'),orderBy('createdAt','desc')),s=>{receivables=s.docs.map(d=>({id:d.id,...d.data()}));refresh();if(can('cashView'))showDueAlert()},err=>{console.error('Erro ao carregar débitos:',err)}));
- if(can('usersManage'))unsubs.push(onSnapshot(collection(db,'tenants',tenant,'users'),s=>{users=s.docs.map(d=>({id:d.id,...d.data(),permissions:permissionsOf(d.data())}));refresh()}));
- if(isAdmin()&&licensed('marketing')){unsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'marketplaceCampaigns'),orderBy('createdAt','desc')),s=>{campaigns=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}));unsubs.push(onSnapshot(collection(db,'tenants',tenant,'campaignSends'),s=>{campaignSends=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}));if(licensed('estoque'))unsubs.push(onSnapshot(collection(db,'tenants',tenant,'suppliers'),s=>{supplierLoadError='';suppliers=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'pt-BR'));refresh()},err=>{console.error('Erro ao carregar fornecedores:',err);supplierLoadError=err?.code==='permission-denied'?'Sem permissão para acessar fornecedores. Publique o firestore.rules desta versão no Firebase.':`Erro ao carregar fornecedores: ${err?.message||err}`;refresh();toast(supplierLoadError)}));if(licensed('sorteios'))unsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'raffles'),orderBy('createdAt','desc')),s=>{raffles=s.docs.map(d=>({id:d.id,...d.data()}));refresh()},err=>{console.error('Erro ao carregar sorteios:',err);}));unsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'publicityCampaigns'),orderBy('createdAt','desc')),s=>{publicityCampaigns=s.docs.map(d=>({id:d.id,...d.data()}));refresh()},err=>console.error('Erro ao carregar divulgações:',err)));unsubs.push(onSnapshot(collection(db,'tenants',tenant,'publicitySends'),s=>{publicitySends=s.docs.map(d=>({id:d.id,...d.data()}));refresh()},err=>console.error('Erro ao carregar envios de divulgação:',err)));}
- if(isAdmin()&&licensed('sorteios')&&!licensed('marketing'))unsubs.push(onSnapshot(query(collection(db,'tenants',tenant,'raffles'),orderBy('createdAt','desc')),s=>{raffles=s.docs.map(d=>({id:d.id,...d.data()}));refresh()}));
- qs('#roleBadge').textContent=isAdmin()?'Administrador':'Funcionário';
+  unsubs.push(onSnapshot(doc(db,'masterTenants',tenant),s=>{
+    masterLicense=s.exists()?s.data():null;
+    const nextKey=masterLicense && Array.isArray(masterLicense.modules)
+      ? JSON.stringify([...masterLicense.modules].sort()) : 'sem-licenca';
+    if(nextKey!==licenseModulesKey){
+      licenseModulesKey=nextKey;
+      startLicensedRealtime();
+    }
+    buildMenu();
+    if(!pageAllowed(currentPage))currentPage='dashboard';
+    refresh();
+  },err=>{
+    console.error('Erro ao consultar licença:',err);
+    stopLicensedRealtime();
+    masterLicense=null;
+    licenseModulesKey=null;
+    buildMenu();
+    toast('Não foi possível carregar a licença. Confira a conexão e as permissões.');
+    refresh();
+  }));
+  qs('#roleBadge').textContent=isAdmin()?'Administrador':'Funcionário';
 }
 function refresh(){
   if(qs('#appView').classList.contains('hidden'))return;
